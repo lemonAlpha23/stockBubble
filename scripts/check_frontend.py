@@ -174,6 +174,15 @@ def main() -> None:
             page.wait_for_function(
                 "document.getElementById('spark-meta').textContent.includes('BBB')"
             )
+            assert page.locator(".spark-axis text").count() >= 2, "Missing price ticks"
+            page.locator("#sparkline").scroll_into_view_if_needed()
+            chart = page.locator("#sparkline").bounding_box()
+            assert chart
+            page.mouse.move(chart["x"] + chart["width"] * 0.3, chart["y"] + chart["height"] / 2)
+            assert page.locator(".spark-hover").get_attribute("display") is None
+            assert page.locator(".spark-hover text").first.text_content(), "Missing hover price"
+            page.mouse.move(0, 0)
+            assert page.locator(".spark-hover").get_attribute("display") == "none"
             count = page.evaluate("window.historyCalls.length")
             select("AAA")
             assert page.evaluate("window.historyCalls.length") == count, "Fresh cache missed"

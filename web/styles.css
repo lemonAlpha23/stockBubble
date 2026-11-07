@@ -522,7 +522,7 @@ button {
 /* 详情抽屉是覆盖在画布上的，打开时把画布让出来，
    否则右侧几颗气泡会藏在抽屉底下（看起来像"少了几颗"。 */
 .stage.has-detail {
-  padding-right: 368px;
+  padding-right: calc(var(--detail-width, 352px) + 16px);
 }
 
 #bubbles {
@@ -786,7 +786,7 @@ button {
   top: var(--bar-h, 96px);
   right: 0;
   bottom: 0;
-  width: min(352px, 92vw);
+  width: min(var(--detail-width, 352px), 65vw);
   padding: 20px 22px 30px;
   background: #0a0e14;
   border-left: 1px solid rgba(255, 255, 255, 0.06);
@@ -1009,7 +1009,7 @@ button {
 
 #sparkline {
   width: 100%;
-  height: 84px;
+  height: 110px;
   overflow: visible;
 }
 
@@ -1267,4 +1267,27 @@ button {
 
 .bubble image.logo:not([href]) {
   visibility: hidden;
+}
+
+.spark-axis, .spark-hover { font-family: var(--mono); font-size: 9px; }
+.spark-axis { pointer-events: none; }
+.spark-axis line { stroke: currentColor; opacity: 0.1; stroke-dasharray: 2 3; }
+.spark-axis text { fill: var(--muted, #8390a0); }
+.spark-hover line { stroke: #8390a0; stroke-dasharray: 3 3; }
+.spark-hover circle { fill: var(--accent); stroke: #fff; stroke-width: 1; }
+.spark-hover text { fill: var(--text, #dce4ee); }
+.spark-hit { cursor: crosshair; }
+
+.detail-resize { position: absolute; left: 0; top: 0; bottom: 0; width: 9px; cursor: ew-resize; touch-action: none; z-index: 2; }
+.detail-resize::after { content: ''; position: absolute; left: 1px; top: 0; bottom: 0; width: 2px; background: var(--accent); opacity: 0; transition: opacity 0.15s; }
+.detail-resize:hover::after, .detail-resize:focus-visible::after, .resizing-detail .detail-resize::after { opacity: 0.7; }
+.resizing-detail, .resizing-detail * { cursor: ew-resize !important; user-select: none !important; }
+.resizing-detail .stage { transition: none; }
+@media (max-width: 860px) { .detail-resize { display: none; } }
+
+.detail-swipe-handle { display: none; }
+@media (max-width: 860px) {
+  .detail-swipe-handle { display: flex; justify-content: center; padding: 0 0 15px; }
+  .detail-swipe-handle span { width: 34px; height: 4px; border-radius: 3px; background: #485363; }
+  .detail.is-swiping { transition: none; user-select: none; }
 }

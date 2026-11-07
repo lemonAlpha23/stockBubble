@@ -1584,6 +1584,8 @@
     historyToken += 1;
     historyRequest?.abort();
     state.selected = null;
+    el.detail.style.removeProperty('transform');
+    el.detail.classList.remove('is-swiping');
     el.detail.hidden = true;
     el.stage.classList.remove('has-detail');
     paintSelection();
@@ -1668,7 +1670,10 @@
     }
   }
 
+  let sparkPoints = [];
   function drawSparkline(points) {
+    sparkPoints = points || [];
+    el.sparkline.selectAll('.spark-axis, .spark-hover, .spark-hit').remove();
     const line = el.sparkline.select('.spark-line');
     const area = el.sparkline.select('.spark-area');
     if (!points || points.length < 2) {
@@ -1676,18 +1681,24 @@
       area.attr('d', null);
       return;
     }
-    const width = 320;
-    const height = 96;
+    const height = 110;
+    const width = Math.max(220, el.sparkline.node().getBoundingClientRect().width);
+    el.sparkline.attr('viewBox', `0 0 ${width} ${height}`);
+    const tickLabels = d3.extent(points, (point) => point.c).map((value) =>
+      value.toLocaleString('en-US', { maximumFractionDigits: 6 }));
+    const axisWidth = Math.min(100, Math.max(46, Math.max(...tickLabels.map((text) => text.length)) * 5.5 + 10));
+    const plotRight = width - axisWidth;
     const xs = d3
       .scaleLinear()
       .domain(d3.extent(points, (point) => point.t))
-      .range([2, width - 2]);
+      .range([2, plotRight]);
     const extent = d3.extent(points, (point) => point.c);
     const pad = (extent[1] - extent[0]) * 0.12 || Math.abs(extent[1]) * 0.02 || 1;
     const ys = d3
       .scaleLinear()
       .domain([extent[0] - pad, extent[1] + pad])
-      .range([height - 4, 4]);
+      .nice(3)
+      .range([height - 20, 18]);
 
     const path = d3
       .line()
@@ -1701,6 +1712,48 @@
     area
       .attr('d', `${path(points)} L ${xs(last.t)} ${height} L ${xs(first.t)} ${height} Z`)
       .attr('fill', rising ? 'rgba(61,220,151,0.16)' : 'rgba(255,95,109,0.16)');
+
+    const priceFormat = (value) => value.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: Math.min(12, Math.max(2,
+        2 - Math.floor(Math.log10(Math.abs(value) || 1))))
+    });
+    const axis = el.sparkline.append('g').attr('class', 'spark-axis');
+    for (const value of ys.ticks(3)) {
+      const y = ys(value);
+      axis.append('line').attr('x1', 2).attr('x2', plotRight)
+        .attr('y1', y).attr('y2', y);
+      axis.append('text').attr('x', width - 2).attr('text-anchor', 'end').attr('y', y)
+        .attr('dy', '0.32em').text(priceFormat(value));
+    }
+    const hover = el.sparkline.append('g').attr('class', 'spark-hover')
+      .attr('display', 'none').attr('pointer-events', 'none');
+    const guide = hover.append('line').attr('y1', 16).attr('y2', height - 18);
+    const dot = hover.append('circle').attr('r', 3);
+    const label = hover.append('text').attr('y', 9);
+    const date = hover.append('text').attr('y', height - 2);
+    el.sparkline.append('rect').attr('class', 'spark-hit')
+      .attr('width', plotRight).attr('height', height).attr('fill', 'transparent')
+      .on('pointermove pointerdown', (event) => {
+        const [x] = d3.pointer(event, el.sparkline.node());
+        const index = d3.bisector((point) => point.t).center(points, xs.invert(x));
+        const point = points[index];
+        const px = xs(point.t);
+        hover.attr('display', null);
+        guide.attr('x1', px).attr('x2', px);
+        dot.attr('cx', px).attr('cy', ys(point.c));
+        const anchor = px > plotRight / 2 ? 'end' : 'start';
+        const labelX = Math.max(4, Math.min(plotRight - 4, px));
+        label.attr('x', labelX).attr('text-anchor', anchor)
+          .text(priceFormat(point.c));
+        date.attr('x', labelX).attr('text-anchor', anchor)
+          .text(new Date(point.t).toLocaleString('zh-CN', {
+            month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+            hour12: false
+          }));
+      })
+      .on('pointerleave pointercancel', () => hover.attr('display', 'none'));
+
   }
 
   /* ---------------------------------------------------------------- status */
@@ -2092,6 +2145,82 @@
     });
 
     el.detailClose.addEventListener('click', closeDetail);
+    let sheetSwipe = null;
+    const resetSheetSwipe = () => {
+      sheetSwipe = null;
+      el.detail.classList.remove('is-swiping');
+      el.detail.style.removeProperty('transform');
+    };
+    el.detail.addEventListener('touchstart', (event) => {
+      resetSheetSwipe();
+      if (!window.matchMedia('(max-width: 860px)').matches || el.detail.hidden ||
+          event.touches.length !== 1 || el.detail.scrollTop > 0 ||
+          event.target.closest('button, a, input, select, textarea')) return;
+      const touch = event.touches[0];
+      sheetSwipe = { x: touch.clientX, y: touch.clientY, distance: 0, active: false };
+    }, { passive: true });
+    el.detail.addEventListener('touchmove', (event) => {
+      if (!sheetSwipe) return;
+      if (event.touches.length !== 1) { resetSheetSwipe(); return; }
+      const dx = event.touches[0].clientX - sheetSwipe.x;
+      const dy = event.touches[0].clientY - sheetSwipe.y;
+      if (!sheetSwipe.active) {
+        if (Math.abs(dx) > 8 && Math.abs(dx) >= Math.abs(dy) || dy < -8) {
+          resetSheetSwipe();
+          return;
+        }
+        if (dy < 8) return;
+        sheetSwipe.active = true;
+        el.detail.classList.add('is-swiping');
+      }
+      event.preventDefault();
+      sheetSwipe.distance = Math.max(0, dy);
+      el.detail.style.transform = `translateY(${sheetSwipe.distance}px)`;
+    }, { passive: false });
+    el.detail.addEventListener('touchend', () => {
+      if (!sheetSwipe) return;
+      const dismiss = sheetSwipe.active && sheetSwipe.distance >=
+        Math.min(100, el.detail.getBoundingClientRect().height * 0.25);
+      resetSheetSwipe();
+      if (dismiss) closeDetail();
+    });
+    el.detail.addEventListener('touchcancel', resetSheetSwipe);
+
+    const resizeHandle = $('detail-resize');
+    const setDetailWidth = (width) => {
+      const bounded = Math.round(Math.max(300, Math.min(width, window.innerWidth * 0.65, 760)));
+      document.documentElement.style.setProperty('--detail-width', `${bounded}px`);
+      resizeHandle.setAttribute('aria-valuenow', String(bounded));
+      return bounded;
+    };
+    let drag = null;
+    resizeHandle.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      drag = { x: event.clientX, width: el.detail.getBoundingClientRect().width };
+      resizeHandle.setPointerCapture(event.pointerId);
+      document.body.classList.add('resizing-detail');
+      event.preventDefault();
+    });
+    resizeHandle.addEventListener('pointermove', (event) => {
+      if (drag) setDetailWidth(drag.width + drag.x - event.clientX);
+    });
+    const endResize = () => {
+      drag = null;
+      document.body.classList.remove('resizing-detail');
+    };
+    resizeHandle.addEventListener('pointerup', endResize);
+    resizeHandle.addEventListener('pointercancel', endResize);
+    resizeHandle.addEventListener('lostpointercapture', endResize);
+    resizeHandle.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home'].includes(event.key)) return;
+      event.preventDefault();
+      setDetailWidth(event.key === 'Home' ? 352 :
+        el.detail.getBoundingClientRect().width + (event.key === 'ArrowLeft' ? 24 : -24));
+    });
+    new ResizeObserver(() => {
+      if (!el.detail.hidden) drawSparkline(sparkPoints);
+    }).observe(el.sparkline.node());
+
 
     el.svg.on('click', (event) => {
       if (event.target.tagName === 'svg') closeDetail();
