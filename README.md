@@ -2,7 +2,7 @@
 
 **在线体验：[Stock Bubble 网页版](https://stock-bubble-kappa.vercel.app/?universe=crypto&window=24h)**（默认展示加密货币的 24 小时涨跌幅）
 
-一个仿 [cryptobubbles.net](https://cryptobubbles.net/zh) 的**多资产类别**气泡图行情看板：气泡面积默认代表 **24h 成交额**（也可切回市值），颜色代表涨跌幅，支持加密货币与美股，并且可以按行业分组、缩放、拖动气泡、点开单只标的看走势。
+一个仿 [cryptobubbles.net](https://cryptobubbles.net/zh) 的**多资产类别**气泡图行情看板：气泡面积默认代表 **24h 成交额**（也可切回市值），颜色代表涨跌幅，支持加密货币与美股，并且可以按行业分组、缩放、拖动气泡、点开单只标的看走势 。
 
 后端 Python 3.12 + FastAPI，前端零构建（D3 v7 + 原生 JS），所有行情来自公开接口，无 API key 即可运行。
 
@@ -81,13 +81,13 @@ CoinGecko 返回 429 时不会立即连续重试，而会进入至少 60 秒的�
 分层依赖**单向**：`api → application → adapters → domain`。用 `.importlinter`
 （5 条契约）和 `tests/test_architecture.py`（AST 检查）双向锁死，改坏了 CI 就红。
 
-| 层 | 职责 | 允许依赖 |
-| --- | --- | --- |
-| `domain` | 纯词汇表：`Universe`、`Quote`、`ChangeWindow`、`Snapshot`、错误类型、端口 Protocol | 只允许 pydantic |
-| `adapters` | 外部世界：CoinGecko / Yahoo 行情、YAML universe 仓库、TTL 缓存、HTTP 客户端 | domain |
-| `application` | 用例：`BubbleService`（快照）、`HistoryService`（走势）、`MarketFeed`（带缓存的取数）、`metrics`（气泡口径） | domain |
-| `api` | 传输：DTO、路由、异常映射、静态资源 | application |
-| `bootstrap` / `cli` | 组合根：唯一知道「真实适配器」的地方 | 全部 |
+| 层                      | 职责                                                                                                                 | 允许依赖        |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------- | --------------- |
+| `domain`              | 纯词汇表：`Universe`、`Quote`、`ChangeWindow`、`Snapshot`、错误类型、端口 Protocol                           | 只允许 pydantic |
+| `adapters`            | 外部世界：CoinGecko / Yahoo 行情、YAML universe 仓库、TTL 缓存、HTTP 客户端                                          | domain          |
+| `application`         | 用例：`BubbleService`（快照）、`HistoryService`（走势）、`MarketFeed`（带缓存的取数）、`metrics`（气泡口径） | domain          |
+| `api`                 | 传输：DTO、路由、异常映射、静态资源                                                                                  | application     |
+| `bootstrap` / `cli` | 组合根：唯一知道「真实适配器」的地方                                                                                 | 全部            |
 
 ```
 src/stockbubble/
@@ -115,14 +115,14 @@ tests/                     单元 + 适配器 mock + API 冒烟 + 架构守卫
 
 ## HTTP 接口
 
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| GET | `/api/config` | 前端启动配置：窗口、口径、刷新间隔、色标钳制 |
-| GET | `/api/universes` | 可用 universe 列表（含窗口、limit、标的数） |
-| GET | `/api/bubbles` | 气泡快照，参数 `universe`、`window`、`size`、`limit` |
-| GET | `/api/history` | 详情走势，参数 `symbol`、`universe`、`timeframe` |
-| GET | `/api/health` | 装配健康度：provider 能力、universe 数量 |
-| GET | `/api/docs` | OpenAPI 文档 |
+| 方法 | 路径               | 说明                                                         |
+| ---- | ------------------ | ------------------------------------------------------------ |
+| GET  | `/api/config`    | 前端启动配置：窗口、口径、刷新间隔、色标钳制                 |
+| GET  | `/api/universes` | 可用 universe 列表（含窗口、limit、标的数）                  |
+| GET  | `/api/bubbles`   | 气泡快照，参数 `universe`、`window`、`size`、`limit` |
+| GET  | `/api/history`   | 详情走势，参数 `symbol`、`universe`、`timeframe`       |
+| GET  | `/api/health`    | 装配健康度：provider 能力、universe 数量                     |
+| GET  | `/api/docs`      | OpenAPI 文档                                                 |
 
 `/api/bubbles` 的每个 `nodes[]` 项：
 
@@ -193,13 +193,13 @@ instruments:
      都 JSON 解码失败 → 整条路由「没有返回任何报价」）。`patch_nasdaq_transport()`
      把这一层换成 httpx，OpenBB 的 query/model/transform 照旧，路由才真的能出数。
   3. `yfinance` 提供方现在要求 cookie+crumb，直接返回 0 行。
-  所以默认 `BUBBLE_US_PROVIDER=yahoo`（批量、~5s 拿全 258 只，含 crumb 与 spark）。
-  OpenBB 作为可选项保留：`BUBBLE_US_PROVIDER=openbb` 时价格走 OpenBB
-  （`source=openbb`，`patch_nasdaq_transport()` 已让 nasdaq 路由出数），代价是
-  **整轮 258 只约 4–5 分钟**（limit 只影响回传条数，不影响取数范围），且 nasdaq
-  路由不带市值 —— 那些行会退回按 24h 成交额定气泡大小，并在状态栏标记。分片失败
-  即熔断 300s 并回落到批量源。每条行情都带 `source` 字段（详情抽屉「数据源」一栏
-  能看到 `openbb` 或 `yahoo`）。
+     所以默认 `BUBBLE_US_PROVIDER=yahoo`（批量、~5s 拿全 258 只，含 crumb 与 spark）。
+     OpenBB 作为可选项保留：`BUBBLE_US_PROVIDER=openbb` 时价格走 OpenBB
+     （`source=openbb`，`patch_nasdaq_transport()` 已让 nasdaq 路由出数），代价是
+     **整轮 258 只约 4–5 分钟**（limit 只影响回传条数，不影响取数范围），且 nasdaq
+     路由不带市值 —— 那些行会退回按 24h 成交额定气泡大小，并在状态栏标记。分片失败
+     即熔断 300s 并回落到批量源。每条行情都带 `source` 字段（详情抽屉「数据源」一栏
+     能看到 `openbb` 或 `yahoo`）。
 - **美股公司图标**：Yahoo 不给 logo，所以 `adapters/logos.py` 用两个免 key 的 PNG 源拼覆盖率
   （2026-11 对 258 只逐一验证）：parqet 256/258、companiesmarketcap 256/258，
   **并集 258/258** —— 缺的 4 只各补一边（`FOXA`/`GOOGL` 只有 parqet，
@@ -226,14 +226,14 @@ instruments:
 
 **美股 = Morningstar / TradingView 的 11 个板块**（258 只，每只都必填 `sector`）：
 
-| 板块 | 数量 | 板块 | 数量 |
-| --- | --- | --- | --- |
-| 科技 | 32 | 工业 | 31 |
-| 金融服务 | 30 | 医疗保健 | 29 |
-| 周期性消费 | 29 | 通信服务 | 20 |
-| 防御性消费 | 20 | 能源 | 18 |
-| 基础材料 | 18 | 房地产 | 17 |
-| 公用事业 | 18 | | |
+| 板块       | 数量 | 板块     | 数量 |
+| ---------- | ---- | -------- | ---- |
+| 科技       | 32   | 工业     | 31   |
+| 金融服务   | 30   | 医疗保健 | 29   |
+| 周期性消费 | 29   | 通信服务 | 20   |
+| 防御性消费 | 20   | 能源     | 18   |
+| 基础材料   | 18   | 房地产   | 17   |
+| 公用事业   | 18   |          |      |
 
 **加密货币 = TradingView 的 17 个板块**（220 只，`sectors` 是 `SYMBOL: 板块` 映射，
 不写就落到 `fallback_sector: 其他`，**不会有「未分类」**）：
@@ -262,19 +262,19 @@ sectors:
 
 环境变量前缀 `BUBBLE_`，也可写 `.env`：
 
-| 变量 | 默认 | 说明 |
-| --- | --- | --- |
-| `BUBBLE_HOST` / `BUBBLE_PORT` | `127.0.0.1` / `8000` | 监听地址 |
-| `BUBBLE_QUOTE_TTL_SECONDS` | `45` | 行情缓存；过期后单飞刷新，失败回退旧值并标 stale |
-| `BUBBLE_SERIES_TTL_SECONDS` | `300` | 走势缓存 |
-| `BUBBLE_MAX_NODES` | `400` | 单次快照最多渲染多少个气泡 |
-| `BUBBLE_AUTO_REFRESH_SECONDS` | `60` | 前端自动刷新间隔 |
-| `BUBBLE_COLOR_CLAMP_PCT` | `10` | 色标钳制：±10% 之外饱和 |
-| `BUBBLE_COINGECKO_API_KEY` | 空 | 可选，走 demo key 提额 |
-| `BUBBLE_US_PROVIDER` | `yahoo` | 美股报价路由：`yahoo`（批量，默认）或 `openbb`（逐只慢、需 transport 补丁） |
-| `BUBBLE_OPENBB_QUOTE_PROVIDER` | `nasdaq` | OpenBB 内部提供方，也可 `yfinance`（易 429） |
-| `BUBBLE_OPENBB_CHUNK_SIZE` | `60` | OpenBB 单次请求的 symbol 数 |
-| `BUBBLE_OPENBB_CONCURRENCY` | `4` | 预留给并行分片（当前实现按顺序分片、首个失败即熔断） |
+| 变量                              | 默认                     | 说明                                                                            |
+| --------------------------------- | ------------------------ | ------------------------------------------------------------------------------- |
+| `BUBBLE_HOST` / `BUBBLE_PORT` | `127.0.0.1` / `8000` | 监听地址                                                                        |
+| `BUBBLE_QUOTE_TTL_SECONDS`      | `45`                   | 行情缓存；过期后单飞刷新，失败回退旧值并标 stale                                |
+| `BUBBLE_SERIES_TTL_SECONDS`     | `300`                  | 走势缓存                                                                        |
+| `BUBBLE_MAX_NODES`              | `400`                  | 单次快照最多渲染多少个气泡                                                      |
+| `BUBBLE_AUTO_REFRESH_SECONDS`   | `60`                   | 前端自动刷新间隔                                                                |
+| `BUBBLE_COLOR_CLAMP_PCT`        | `10`                   | 色标钳制：±10% 之外饱和                                                        |
+| `BUBBLE_COINGECKO_API_KEY`      | 空                       | 可选，走 demo key 提额                                                          |
+| `BUBBLE_US_PROVIDER`            | `yahoo`                | 美股报价路由：`yahoo`（批量，默认）或 `openbb`（逐只慢、需 transport 补丁） |
+| `BUBBLE_OPENBB_QUOTE_PROVIDER`  | `nasdaq`               | OpenBB 内部提供方，也可 `yfinance`（易 429）                                  |
+| `BUBBLE_OPENBB_CHUNK_SIZE`      | `60`                   | OpenBB 单次请求的 symbol 数                                                     |
+| `BUBBLE_OPENBB_CONCURRENCY`     | `4`                    | 预留给并行分片（当前实现按顺序分片、首个失败即熔断）                            |
 
 ## 前端
 
@@ -429,16 +429,16 @@ sectors:
 
 **实测**（120 颗、Edge headless + CDP 直读 `style.transform`）：
 
-| 指标 | 数值 |
-| --- | --- |
-| 静止时相邻间隙（100 颗） | 最小 5.2–7.1px、p25 9.5px、中位 **14.6px**、相切 0 对 |
-| 静置单帧位移 | 最大 0.04px（不抖） |
-| 拖动撞进人群 | 单次拖动触发 **21–30 次**撞击（同一对 180ms 内只弹一次） |
-| 3 秒整体位移 | 中位 2.8px、最大 4.5px（游动幅度） |
-| 指针滞后（拖动中） | 中位 5px、最大 7px |
-| 拖动全程最大重叠 | **−0.6px**（亚像素；调参前 −32.9px） |
-| 220 / 258 颗极限密度 | 最小间隙 8.5 / 8.3px、61 / 58fps |
-| 邻居单帧位移（拖动中） | p95 8.6px、最大 19px（修复前 28.5 / 59.6 —— 那 59.6px 的跳变就是"闪现"） |
-| 松手 2.5s 后 | 相切 0 对、最小间隙 5.2px（被推开的邻居自己回位） |
-| 帧率 | headless 50–57fps（无 vsync；真机 60fps） |
-| 控制台 | 0 error |
+| 指标                     | 数值                                                                       |
+| ------------------------ | -------------------------------------------------------------------------- |
+| 静止时相邻间隙（100 颗） | 最小 5.2–7.1px、p25 9.5px、中位 **14.6px**、相切 0 对               |
+| 静置单帧位移             | 最大 0.04px（不抖）                                                        |
+| 拖动撞进人群             | 单次拖动触发 **21–30 次**撞击（同一对 180ms 内只弹一次）            |
+| 3 秒整体位移             | 中位 2.8px、最大 4.5px（游动幅度）                                         |
+| 指针滞后（拖动中）       | 中位 5px、最大 7px                                                         |
+| 拖动全程最大重叠         | **−0.6px**（亚像素；调参前 −32.9px）                               |
+| 220 / 258 颗极限密度     | 最小间隙 8.5 / 8.3px、61 / 58fps                                           |
+| 邻居单帧位移（拖动中）   | p95 8.6px、最大 19px（修复前 28.5 / 59.6 —— 那 59.6px 的跳变就是"闪现"） |
+| 松手 2.5s 后             | 相切 0 对、最小间隙 5.2px（被推开的邻居自己回位）                          |
+| 帧率                     | headless 50–57fps（无 vsync；真机 60fps）                                 |
+| 控制台                   | 0 error                                                                    |
