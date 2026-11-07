@@ -1685,14 +1685,10 @@
     const plotBottom = 90;
     const width = Math.max(220, el.sparkline.node().getBoundingClientRect().width);
     el.sparkline.attr('viewBox', `0 0 ${width} ${height}`);
-    const tickLabels = d3.extent(points, (point) => point.c).map((value) =>
-      value.toLocaleString('en-US', { maximumFractionDigits: 6 }));
-    const axisWidth = Math.min(100, Math.max(46, Math.max(...tickLabels.map((text) => text.length)) * 5.5 + 10));
-    const plotRight = width - axisWidth;
     const xs = d3
       .scaleLinear()
       .domain(d3.extent(points, (point) => point.t))
-      .range([2, plotRight]);
+      .range([2, width]);
     const extent = d3.extent(points, (point) => point.c);
     const pad = (extent[1] - extent[0]) * 0.12 || Math.abs(extent[1]) * 0.02 || 1;
     const ys = d3
@@ -1700,6 +1696,18 @@
       .domain([extent[0] - pad, extent[1] + pad])
       .nice(3)
       .range([plotBottom, 18]);
+    const priceFormat = (value) => value.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: Math.min(12, Math.max(2,
+        2 - Math.floor(Math.log10(Math.abs(value) || 1))))
+    });
+    const measure = document.createElement('canvas').getContext('2d');
+    measure.font = `9px ${getComputedStyle(el.sparkline.node()).getPropertyValue('--mono') || 'monospace'}`;
+    const axisWidth = Math.ceil(Math.max(...ys.ticks(3).map((value) =>
+      measure.measureText(priceFormat(value)).width))) + 8;
+    const plotRight = width - axisWidth;
+    xs.range([2, plotRight]);
+
 
     const path = d3
       .line()
@@ -1714,11 +1722,6 @@
       .attr('d', `${path(points)} L ${xs(last.t)} ${plotBottom} L ${xs(first.t)} ${plotBottom} Z`)
       .attr('fill', rising ? 'rgba(61,220,151,0.16)' : 'rgba(255,95,109,0.16)');
 
-    const priceFormat = (value) => value.toLocaleString('en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: Math.min(12, Math.max(2,
-        2 - Math.floor(Math.log10(Math.abs(value) || 1))))
-    });
     const axis = el.sparkline.append('g').attr('class', 'spark-axis');
     for (const value of ys.ticks(3)) {
       const y = ys(value);
