@@ -23,6 +23,7 @@
       <nav class="universes" id="universes" aria-label="资产类别"></nav>
 
       <div class="tools">
+        <button class="controls-toggle" id="controls-toggle" type="button" aria-expanded="false" aria-controls="view-controls">筛选设置</button>
         <label class="search">
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <path
@@ -56,7 +57,7 @@
       </div>
     </header>
 
-    <section class="controls" aria-label="视图设置">
+    <section class="controls" id="view-controls" aria-label="视图设置">
       <div class="control-group">
         <span class="control-label">涨跌窗口</span>
         <div class="segmented" id="windows" role="radiogroup" aria-label="涨跌窗口"></div>

@@ -1867,6 +1867,12 @@
   /* ------------------------------------------------------------------ boot */
 
   function wireEvents() {
+    const controlsToggle = $('controls-toggle');
+    controlsToggle.addEventListener('click', () => {
+      const expanded = $('view-controls').classList.toggle('is-expanded');
+      controlsToggle.setAttribute('aria-expanded', String(expanded));
+      controlsToggle.textContent = expanded ? '收起筛选' : '筛选设置';
+    });
     el.refresh.addEventListener('click', () => {
       state.historyCache.clear();
       void loadSnapshot();
