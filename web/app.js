@@ -409,8 +409,8 @@
     // 否则右侧那几颗球会被抽屉盖住（用户看到的现象：设了 20 个、只看到 14 个）。
     const style = window.getComputedStyle(el.stage);
     const inset = Number.parseFloat(style.paddingRight) || 0;
-    const width = Math.max(320, rect.width - inset);
-    return { width, height: Math.max(280, rect.height - 2) };
+    const width = Math.max(1, rect.width - inset);
+    return { width, height: Math.max(1, rect.height - 2) };
   }
 
   /** Scale/centre the packed layout so the cluster fills the stage evenly. */
