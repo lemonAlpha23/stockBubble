@@ -1,0 +1,61 @@
+[importlinter]
+root_package = stockbubble
+include_external_packages = True
+
+[importlinter:contract:layers]
+name = Layered architecture: api -> application -> adapters -> domain
+type = layers
+layers =
+    stockbubble.api
+    stockbubble.application
+    stockbubble.adapters
+    stockbubble.domain
+
+[importlinter:contract:domain-purity]
+name = Domain layer owns the vocabulary only (no frameworks, no IO)
+type = forbidden
+source_modules =
+    stockbubble.domain
+forbidden_modules =
+    fastapi
+    starlette
+    uvicorn
+    httpx
+    yaml
+    pydantic_settings
+    stockbubble.adapters
+    stockbubble.application
+    stockbubble.api
+    stockbubble.bootstrap
+    stockbubble.cli
+
+[importlinter:contract:adapters-independence]
+name = Adapters do not know about use cases or transport
+type = forbidden
+source_modules =
+    stockbubble.adapters
+forbidden_modules =
+    stockbubble.application
+    stockbubble.api
+    stockbubble.bootstrap
+
+[importlinter:contract:api-via-application]
+name = The API layer drives use cases, never adapters
+type = forbidden
+source_modules =
+    stockbubble.api
+forbidden_modules =
+    stockbubble.adapters
+    stockbubble.bootstrap
+    stockbubble.cli
+ignore_imports =
+    # asgi.py is the composition entry point uvicorn loads; it is allowed to
+    # call the bootstrap wiring function exactly once.
+    stockbubble.api.asgi -> stockbubble.bootstrap
+
+[importlinter:contract:provider-adapters-are-siblings]
+name = Provider adapters never import each other
+type = independence
+modules =
+    stockbubble.adapters.coingecko
+    stockbubble.adapters.yahoo

@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Bubble Board · 资产气泡图</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='13' cy='14' r='9' fill='%2346d19b'/%3E%3Ccircle cx='24' cy='22' r='6' fill='%23ff5c5c' opacity='.85'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <a class="skip-link" href="#chart">跳到气泡图</a>
+
+    <header class="topbar">
+      <div class="brand">
+        <h1>Bubble Board</h1>
+        <span class="brand-sub">资产气泡图</span>
+      </div>
+
+      <nav class="universes" id="universes" aria-label="资产类别"></nav>
+
+      <div class="tools">
+        <label class="search">
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path
+              d="M9 3a6 6 0 1 0 3.7 10.7l3.8 3.8 1.4-1.4-3.8-3.8A6 6 0 0 0 9 3m0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8"
+            />
+          </svg>
+          <input
+            id="search"
+            type="search"
+            placeholder="搜索代码或名称"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="搜索代码或名称"
+          />
+        </label>
+        <button class="icon-button" id="relayout" type="button" title="重新排布气泡（拖动过的位置会复位）">
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path
+              d="M3 3h5v5H3V3Zm9 0h5v5h-5V3ZM3 12h5v5H3v-5Zm9 0h5v5h-5v-5Z"
+            />
+          </svg>
+        </button>
+        <button class="icon-button" id="refresh" type="button" title="立即刷新">
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path
+              d="M10 3a7 7 0 1 1-6.6 9.3l1.9-.6A5 5 0 1 0 10 5v2.5L6 4 10 .5V3Z"
+            />
+          </svg>
+          <span id="countdown" class="countdown"></span>
+        </button>
+      </div>
+    </header>
+
+    <section class="controls" aria-label="视图设置">
+      <div class="control-group">
+        <span class="control-label">涨跌窗口</span>
+        <div class="segmented" id="windows" role="radiogroup" aria-label="涨跌窗口"></div>
+      </div>
+      <div class="control-group">
+        <span class="control-label">气泡口径</span>
+        <div class="segmented" id="bases" role="radiogroup" aria-label="气泡口径"></div>
+      </div>
+      <div class="control-group">
+        <span class="control-label">尺寸映射</span>
+        <div class="segmented" id="scales" role="radiogroup" aria-label="尺寸映射">
+          <button type="button" role="radio" data-scale="0.26" aria-checked="true">均衡</button>
+          <button type="button" role="radio" data-scale="0.5" aria-checked="false">差异适中</button>
+          <button type="button" role="radio" data-scale="1" aria-checked="false">面积∝数值</button>
+        </div>
+      </div>
+      <div class="control-group">
+        <span class="control-label">分组</span>
+        <div class="segmented" id="groups" role="radiogroup" aria-label="分组">
+          <button type="button" role="radio" data-group="none" aria-checked="true">不分组</button>
+          <button type="button" role="radio" data-group="sector" aria-checked="false">按行业</button>
+        </div>
+      </div>
+      <div class="controls-right">
+      <div class="control-group">
+        <span class="control-label">数量</span>
+        <div class="picker" id="limit-picker">
+          <button
+            type="button"
+            class="picker-trigger"
+            id="limit-trigger"
+            aria-haspopup="dialog"
+            aria-expanded="false"
+            aria-controls="limit-pop"
+          >
+            <span id="limit-value">100</span>
+            <svg class="picker-chevron" viewBox="0 0 12 12" aria-hidden="true">
+              <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+            </svg>
+          </button>
+          <div class="picker-pop" id="limit-pop" role="dialog" aria-label="显示数量" hidden>
+            <div class="picker-presets" id="limit-presets"></div>
+            <form class="picker-form" id="limit-form" novalidate hidden>
+              <input
+                id="limit-input"
+                type="number"
+                inputmode="numeric"
+                step="1"
+                min="1"
+                autocomplete="off"
+                spellcheck="false"
+                aria-label="自定义数量"
+                placeholder="自定义数量"
+              />
+              <button type="submit">确定</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="legend" aria-label="颜色图例">
+        <span id="legend-min" class="legend-edge"></span>
+        <span class="legend-bar"></span>
+        <span id="legend-max" class="legend-edge"></span>
+      </div>
+      </div>
+    </section>
+
+    <main id="chart" class="stage">
+      <svg id="bubbles" role="img" aria-label="资产气泡图"></svg>
+      <div class="loading" id="loading">
+        <span class="spinner" aria-hidden="true"></span>
+        <span id="loading-text">正在加载行情…</span>
+      </div>
+      <div class="empty" id="empty" hidden></div>
+      <div class="tooltip" id="tooltip" hidden></div>
+    </main>
+
+    <footer class="statusbar">
+      <span class="stage-hint" id="stage-hint">拖动气泡挤压邻居 · 滚轮缩放 · 空白处拖动平移 · 双击复位 · 点击详情</span>
+      <span id="status-meta">—</span>
+      <span id="status-warnings" class="warnings"></span>
+      <span class="spacer"></span>
+      <span id="status-updated"></span>
+    </footer>
+
+    <aside class="detail" id="detail" hidden aria-live="polite">
+      <button class="icon-button detail-close" id="detail-close" type="button" title="关闭">
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path d="m5 5 10 10M15 5 5 15" stroke="currentColor" stroke-width="1.8" fill="none" />
+        </svg>
+      </button>
+      <header class="detail-head">
+        <p id="detail-symbol" class="detail-symbol"></p>
+        <h2 id="detail-name"></h2>
+        <p id="detail-sector" class="detail-sector"></p>
+      </header>
+      <div class="detail-price">
+        <span id="detail-price"></span>
+        <span id="detail-currency" class="muted"></span>
+        <span id="detail-change" class="detail-change"></span>
+      </div>
+      <dl class="detail-grid" id="detail-windows"></dl>
+      <div class="detail-spark">
+        <div class="spark-head">
+          <span class="control-label">价格走势</span>
+          <div class="segmented small" id="timeframes" role="radiogroup" aria-label="时间范围"></div>
+        </div>
+        <svg id="sparkline" viewBox="0 0 320 96" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="spark-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#7c9cff" stop-opacity="0.26" />
+              <stop offset="70%" stop-color="#7c9cff" stop-opacity="0.04" />
+              <stop offset="100%" stop-color="#7c9cff" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+          <path class="spark-area" />
+          <path class="spark-line" />
+        </svg>
+        <p class="spark-meta muted" id="spark-meta"></p>
+      </div>
+      <dl class="detail-facts" id="detail-facts"></dl>
+      <p class="detail-foot" id="detail-foot"></p>
+    </aside>
+
+    <div class="toast" id="toast" role="status" hidden></div>
+
+    <script src="/vendor/d3.v7.min.js"></script>
+    <script src="/vendor/planck.min.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

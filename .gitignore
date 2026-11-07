@@ -1,0 +1,20 @@
+# Python-generated files
+/.venv/
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info/
+
+# 缓存与本地环境
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.import_linter_cache/
+.env
+*.log
+
+# 临时产物（本地调试用）
+tmp-*
+shot-*.png

@@ -1,0 +1,15 @@
+# 不要把本地环境和开发期产物打包上去（Vercel 会把整个仓库上传）
+.venv/
+.vercel/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.import_linter_cache/
+tests/
+docs/
+tmp-*
+shot-*.png
+*.log
+.env

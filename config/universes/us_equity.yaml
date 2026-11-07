@@ -1,0 +1,293 @@
+# 美股 · 主要行业龙头（静态 universe：成分由本文件决定）
+#
+# 模型定义见 src/stockbubble/domain/models.py::Universe
+# 规则提醒：静态 provider (openbb / yahoo) 必须显式列出 instruments；symbol 会统一转大写。
+id: us_equity
+name: 美股 · 行业龙头
+asset_class: us_equity
+provider: yahoo
+currency: USD
+default_window: 24h
+supported_windows: [1h, 24h, 7d, 30d]
+limit: 240
+
+instruments:
+  # ── 科技 ────────────────────────────────────────────────────
+  - { symbol: AAPL  , name: 苹果            , sector: 科技 }
+  - { symbol: ACN   , name: 埃森哲           , sector: 科技 }
+  - { symbol: ADBE  , name: 奥多比           , sector: 科技 }
+  - { symbol: ADI   , name: 亚德诺           , sector: 科技 }
+  - { symbol: AMAT  , name: 应用材料          , sector: 科技 }
+  - { symbol: AMD   , name: 超威半导体         , sector: 科技 }
+  - { symbol: ANET  , name: Arista        , sector: 科技 }
+  - { symbol: ASML  , name: 阿斯麦           , sector: 科技 }
+  - { symbol: AVGO  , name: 博通            , sector: 科技 }
+  - { symbol: CDNS  , name: 楷登电子          , sector: 科技 }
+  - { symbol: CRM   , name: 赛富时           , sector: 科技 }
+  - { symbol: CRWD  , name: CrowdStrike   , sector: 科技 }
+  - { symbol: CSCO  , name: 思科            , sector: 科技 }
+  - { symbol: DELL  , name: 戴尔科技          , sector: 科技 }
+  - { symbol: FTNT  , name: Fortinet      , sector: 科技 }
+  - { symbol: IBM   , name: 国际商业机器        , sector: 科技 }
+  - { symbol: INTC  , name: 英特尔           , sector: 科技 }
+  - { symbol: INTU  , name: 财捷            , sector: 科技 }
+  - { symbol: KLAC  , name: 科磊            , sector: 科技 }
+  - { symbol: LRCX  , name: 泛林集团          , sector: 科技 }
+  - { symbol: MRVL  , name: 迈威尔科技         , sector: 科技 }
+  - { symbol: MSFT  , name: 微软            , sector: 科技 }
+  - { symbol: MU    , name: 美光科技          , sector: 科技 }
+  - { symbol: NOW   , name: ServiceNow    , sector: 科技 }
+  - { symbol: NVDA  , name: 英伟达           , sector: 科技 }
+  - { symbol: ORCL  , name: 甲骨文           , sector: 科技 }
+  - { symbol: PANW  , name: Palo Alto     , sector: 科技 }
+  - { symbol: PLTR  , name: Palantir      , sector: 科技 }
+  - { symbol: QCOM  , name: 高通            , sector: 科技 }
+  - { symbol: SNOW  , name: Snowflake     , sector: 科技 }
+  - { symbol: SNPS  , name: 新思科技          , sector: 科技 }
+  - { symbol: TXN   , name: 德州仪器          , sector: 科技 }
+
+  # ── 金融服务 ────────────────────────────────────────────────
+  - { symbol: AFL   , name: 美国家庭人寿        , sector: 金融服务 }
+  - { symbol: AIG   , name: 美国国际集团        , sector: 金融服务 }
+  - { symbol: AJG   , name: 亚瑟加拉格尔        , sector: 金融服务 }
+  - { symbol: ALL   , name: 全州保险          , sector: 金融服务 }
+  - { symbol: AON   , name: 怡安            , sector: 金融服务 }
+  - { symbol: AXP   , name: 美国运通          , sector: 金融服务 }
+  - { symbol: BAC   , name: 美国银行          , sector: 金融服务 }
+  - { symbol: BLK   , name: 贝莱德           , sector: 金融服务 }
+  - { symbol: BRK-B , name: 伯克希尔B         , sector: 金融服务 }
+  - { symbol: C     , name: 花旗集团          , sector: 金融服务 }
+  - { symbol: CB    , name: 安达保险          , sector: 金融服务 }
+  - { symbol: COF   , name: 第一资本          , sector: 金融服务 }
+  - { symbol: GS    , name: 高盛            , sector: 金融服务 }
+  - { symbol: ICE   , name: 洲际交易所         , sector: 金融服务 }
+  - { symbol: JPM   , name: 摩根大通          , sector: 金融服务 }
+  - { symbol: MA    , name: 万事达           , sector: 金融服务 }
+  - { symbol: MCO   , name: 穆迪            , sector: 金融服务 }
+  - { symbol: MET   , name: 大都会人寿         , sector: 金融服务 }
+  - { symbol: MRSH  , name: 威达信           , sector: 金融服务 }
+  - { symbol: MS    , name: 摩根士丹利         , sector: 金融服务 }
+  - { symbol: PGR   , name: 前进保险          , sector: 金融服务 }
+  - { symbol: PNC   , name: PNC 金融        , sector: 金融服务 }
+  - { symbol: PRU   , name: 保诚金融          , sector: 金融服务 }
+  - { symbol: SCHW  , name: 嘉信理财          , sector: 金融服务 }
+  - { symbol: SPGI  , name: 标普全球          , sector: 金融服务 }
+  - { symbol: TFC   , name: Truist        , sector: 金融服务 }
+  - { symbol: TRV   , name: 旅行者保险         , sector: 金融服务 }
+  - { symbol: USB   , name: 美国合众银行        , sector: 金融服务 }
+  - { symbol: V     , name: Visa          , sector: 金融服务 }
+  - { symbol: WFC   , name: 富国银行          , sector: 金融服务 }
+
+  # ── 医疗保健 ────────────────────────────────────────────────
+  - { symbol: ABBV  , name: 艾伯维           , sector: 医疗保健 }
+  - { symbol: ABT   , name: 雅培            , sector: 医疗保健 }
+  - { symbol: AMGN  , name: 安进            , sector: 医疗保健 }
+  - { symbol: BIIB  , name: 百健            , sector: 医疗保健 }
+  - { symbol: BMY   , name: 百时美施贵宝        , sector: 医疗保健 }
+  - { symbol: BSX   , name: 波士顿科学         , sector: 医疗保健 }
+  - { symbol: CI    , name: 信诺            , sector: 医疗保健 }
+  - { symbol: CVS   , name: CVS Health    , sector: 医疗保健 }
+  - { symbol: DHR   , name: 丹纳赫           , sector: 医疗保健 }
+  - { symbol: DXCM  , name: Dexcom        , sector: 医疗保健 }
+  - { symbol: ELV   , name: Elevance      , sector: 医疗保健 }
+  - { symbol: EW    , name: 爱德华生命         , sector: 医疗保健 }
+  - { symbol: GILD  , name: 吉利德           , sector: 医疗保健 }
+  - { symbol: HUM   , name: 哈门那           , sector: 医疗保健 }
+  - { symbol: ILMN  , name: 因美纳           , sector: 医疗保健 }
+  - { symbol: ISRG  , name: 直觉外科          , sector: 医疗保健 }
+  - { symbol: JNJ   , name: 强生            , sector: 医疗保健 }
+  - { symbol: LLY   , name: 礼来            , sector: 医疗保健 }
+  - { symbol: MDT   , name: 美敦力           , sector: 医疗保健 }
+  - { symbol: MRK   , name: 默沙东           , sector: 医疗保健 }
+  - { symbol: MRNA  , name: 莫德纳           , sector: 医疗保健 }
+  - { symbol: PFE   , name: 辉瑞            , sector: 医疗保健 }
+  - { symbol: REGN  , name: 再生元           , sector: 医疗保健 }
+  - { symbol: RMD   , name: 瑞思迈           , sector: 医疗保健 }
+  - { symbol: SYK   , name: 史赛克           , sector: 医疗保健 }
+  - { symbol: TMO   , name: 赛默飞           , sector: 医疗保健 }
+  - { symbol: UNH   , name: 联合健康          , sector: 医疗保健 }
+  - { symbol: VRTX  , name: 福泰制药          , sector: 医疗保健 }
+  - { symbol: ZTS   , name: 硕腾            , sector: 医疗保健 }
+
+  # ── 周期性消费 ──────────────────────────────────────────────
+  - { symbol: ABNB  , name: 爱彼迎           , sector: 周期性消费 }
+  - { symbol: AMZN  , name: 亚马逊           , sector: 周期性消费 }
+  - { symbol: AZO   , name: 汽车地带          , sector: 周期性消费 }
+  - { symbol: BKNG  , name: Booking       , sector: 周期性消费 }
+  - { symbol: CCL   , name: 嘉年华           , sector: 周期性消费 }
+  - { symbol: CMG   , name: Chipotle      , sector: 周期性消费 }
+  - { symbol: DASH  , name: DoorDash      , sector: 周期性消费 }
+  - { symbol: DLTR  , name: 美元树           , sector: 周期性消费 }
+  - { symbol: EBAY  , name: 易贝            , sector: 周期性消费 }
+  - { symbol: ETSY  , name: Etsy          , sector: 周期性消费 }
+  - { symbol: F     , name: 福特            , sector: 周期性消费 }
+  - { symbol: GM    , name: 通用汽车          , sector: 周期性消费 }
+  - { symbol: HD    , name: 家得宝           , sector: 周期性消费 }
+  - { symbol: HLT   , name: 希尔顿           , sector: 周期性消费 }
+  - { symbol: LCID  , name: Lucid         , sector: 周期性消费 }
+  - { symbol: LOW   , name: 劳氏            , sector: 周期性消费 }
+  - { symbol: LULU  , name: Lululemon     , sector: 周期性消费 }
+  - { symbol: MAR   , name: 万豪            , sector: 周期性消费 }
+  - { symbol: MCD   , name: 麦当劳           , sector: 周期性消费 }
+  - { symbol: NCLH  , name: 挪威邮轮          , sector: 周期性消费 }
+  - { symbol: NKE   , name: 耐克            , sector: 周期性消费 }
+  - { symbol: ORLY  , name: 奥莱利           , sector: 周期性消费 }
+  - { symbol: RCL   , name: 皇家加勒比         , sector: 周期性消费 }
+  - { symbol: RIVN  , name: Rivian        , sector: 周期性消费 }
+  - { symbol: ROST  , name: 罗斯百货          , sector: 周期性消费 }
+  - { symbol: SBUX  , name: 星巴克           , sector: 周期性消费 }
+  - { symbol: TJX   , name: TJX           , sector: 周期性消费 }
+  - { symbol: TSLA  , name: 特斯拉           , sector: 周期性消费 }
+  - { symbol: YUM   , name: 百胜餐饮          , sector: 周期性消费 }
+
+  # ── 防御性消费 ──────────────────────────────────────────────
+  - { symbol: ADM   , name: 阿彻丹尼尔斯        , sector: 防御性消费 }
+  - { symbol: CL    , name: 高露洁           , sector: 防御性消费 }
+  - { symbol: COST  , name: 好市多           , sector: 防御性消费 }
+  - { symbol: DG    , name: 美元通用          , sector: 防御性消费 }
+  - { symbol: GIS   , name: 通用磨坊          , sector: 防御性消费 }
+  - { symbol: HSY   , name: 好时            , sector: 防御性消费 }
+  - { symbol: KDP   , name: Keurig Dr Pepper, sector: 防御性消费 }
+  - { symbol: KHC   , name: 卡夫亨氏          , sector: 防御性消费 }
+  - { symbol: KMB   , name: 金佰利           , sector: 防御性消费 }
+  - { symbol: KO    , name: 可口可乐          , sector: 防御性消费 }
+  - { symbol: KR    , name: 克罗格           , sector: 防御性消费 }
+  - { symbol: MDLZ  , name: 亿滋国际          , sector: 防御性消费 }
+  - { symbol: MO    , name: 奥驰亚           , sector: 防御性消费 }
+  - { symbol: PEP   , name: 百事            , sector: 防御性消费 }
+  - { symbol: PG    , name: 宝洁            , sector: 防御性消费 }
+  - { symbol: PM    , name: 菲利普莫里斯        , sector: 防御性消费 }
+  - { symbol: STZ   , name: 星座品牌          , sector: 防御性消费 }
+  - { symbol: SYY   , name: 西斯科           , sector: 防御性消费 }
+  - { symbol: TSN   , name: 泰森食品          , sector: 防御性消费 }
+  - { symbol: WMT   , name: 沃尔玛           , sector: 防御性消费 }
+
+  # ── 通信服务 ────────────────────────────────────────────────
+  - { symbol: CHTR  , name: 特许通讯          , sector: 通信服务 }
+  - { symbol: CMCSA , name: 康卡斯特          , sector: 通信服务 }
+  - { symbol: DIS   , name: 迪士尼           , sector: 通信服务 }
+  - { symbol: FOXA  , name: 福克斯A          , sector: 通信服务 }
+  - { symbol: GOOGL , name: 谷歌A           , sector: 通信服务 }
+  - { symbol: LYV   , name: Live Nation   , sector: 通信服务 }
+  - { symbol: META  , name: Meta          , sector: 通信服务 }
+  - { symbol: MTCH  , name: Match Group   , sector: 通信服务 }
+  - { symbol: NFLX  , name: 奈飞            , sector: 通信服务 }
+  - { symbol: OMC   , name: 宏盟集团          , sector: 通信服务 }
+  - { symbol: PARA  , name: 派拉蒙           , sector: 通信服务 }
+  - { symbol: PINS  , name: Pinterest     , sector: 通信服务 }
+  - { symbol: RBLX  , name: Roblox        , sector: 通信服务 }
+  - { symbol: ROKU  , name: Roku          , sector: 通信服务 }
+  - { symbol: SNAP  , name: Snap          , sector: 通信服务 }
+  - { symbol: SPOT  , name: Spotify       , sector: 通信服务 }
+  - { symbol: T     , name: 美国电话电报        , sector: 通信服务 }
+  - { symbol: TMUS  , name: T-Mobile      , sector: 通信服务 }
+  - { symbol: TTWO  , name: Take-Two 互动   , sector: 通信服务 }
+  - { symbol: VZ    , name: 威瑞森           , sector: 通信服务 }
+
+  # ── 工业 ────────────────────────────────────────────────────
+  - { symbol: ADP   , name: ADP           , sector: 工业 }
+  - { symbol: BA    , name: 波音            , sector: 工业 }
+  - { symbol: CARR  , name: 开利            , sector: 工业 }
+  - { symbol: CAT   , name: 卡特彼勒          , sector: 工业 }
+  - { symbol: CMI   , name: 康明斯           , sector: 工业 }
+  - { symbol: CSX   , name: CSX           , sector: 工业 }
+  - { symbol: CTAS  , name: 信达思           , sector: 工业 }
+  - { symbol: DAL   , name: 达美航空          , sector: 工业 }
+  - { symbol: DE    , name: 迪尔            , sector: 工业 }
+  - { symbol: EMR   , name: 艾默生电气         , sector: 工业 }
+  - { symbol: ETN   , name: 伊顿            , sector: 工业 }
+  - { symbol: FDX   , name: 联邦快递          , sector: 工业 }
+  - { symbol: GE    , name: 通用电气          , sector: 工业 }
+  - { symbol: HON   , name: 霍尼韦尔          , sector: 工业 }
+  - { symbol: IR    , name: 英格索兰          , sector: 工业 }
+  - { symbol: ITW   , name: 伊利诺伊工具        , sector: 工业 }
+  - { symbol: LMT   , name: 洛克希德马丁        , sector: 工业 }
+  - { symbol: MMM   , name: 3M            , sector: 工业 }
+  - { symbol: NSC   , name: 诺福克南方         , sector: 工业 }
+  - { symbol: OTIS  , name: 奥的斯           , sector: 工业 }
+  - { symbol: PCAR  , name: 帕卡            , sector: 工业 }
+  - { symbol: PH    , name: 派克汉尼汾         , sector: 工业 }
+  - { symbol: ROK   , name: 罗克韦尔          , sector: 工业 }
+  - { symbol: RTX   , name: 雷神技术          , sector: 工业 }
+  - { symbol: UAL   , name: 美联航           , sector: 工业 }
+  - { symbol: UBER  , name: 优步            , sector: 工业 }
+  - { symbol: UNP   , name: 联合太平洋         , sector: 工业 }
+  - { symbol: UPS   , name: 联合包裹          , sector: 工业 }
+  - { symbol: URI   , name: 联合租赁          , sector: 工业 }
+  - { symbol: WM    , name: 美国废物管理        , sector: 工业 }
+  - { symbol: XYL   , name: 赛莱默           , sector: 工业 }
+
+  # ── 能源 ────────────────────────────────────────────────────
+  - { symbol: BKR   , name: 贝克休斯          , sector: 能源 }
+  - { symbol: COP   , name: 康菲石油          , sector: 能源 }
+  - { symbol: CVX   , name: 雪佛龙           , sector: 能源 }
+  - { symbol: DVN   , name: 德文能源          , sector: 能源 }
+  - { symbol: EOG   , name: EOG 能源        , sector: 能源 }
+  - { symbol: EQT   , name: EQT 能源        , sector: 能源 }
+  - { symbol: FANG  , name: Diamondback   , sector: 能源 }
+  - { symbol: HAL   , name: 哈里伯顿          , sector: 能源 }
+  - { symbol: KMI   , name: 金德摩根          , sector: 能源 }
+  - { symbol: MPC   , name: 马拉松石油         , sector: 能源 }
+  - { symbol: OKE   , name: ONEOK         , sector: 能源 }
+  - { symbol: OXY   , name: 西方石油          , sector: 能源 }
+  - { symbol: PSX   , name: Phillips 66   , sector: 能源 }
+  - { symbol: SLB   , name: 斯伦贝谢          , sector: 能源 }
+  - { symbol: TRGP  , name: Targa         , sector: 能源 }
+  - { symbol: VLO   , name: 瓦莱罗能源         , sector: 能源 }
+  - { symbol: WMB   , name: 威廉姆斯          , sector: 能源 }
+  - { symbol: XOM   , name: 埃克森美孚         , sector: 能源 }
+
+  # ── 基础材料 ────────────────────────────────────────────────
+  - { symbol: ALB   , name: 雅保            , sector: 基础材料 }
+  - { symbol: APD   , name: 空气化工          , sector: 基础材料 }
+  - { symbol: DD    , name: 杜邦            , sector: 基础材料 }
+  - { symbol: DOW   , name: 陶氏            , sector: 基础材料 }
+  - { symbol: ECL   , name: 艺康            , sector: 基础材料 }
+  - { symbol: FCX   , name: 自由港           , sector: 基础材料 }
+  - { symbol: LIN   , name: 林德            , sector: 基础材料 }
+  - { symbol: MLM   , name: 马丁材料          , sector: 基础材料 }
+  - { symbol: NEM   , name: 纽蒙特           , sector: 基础材料 }
+  - { symbol: NUE   , name: 纽柯钢铁          , sector: 基础材料 }
+  - { symbol: PPG   , name: PPG 工业        , sector: 基础材料 }
+  - { symbol: SHW   , name: 宣伟            , sector: 基础材料 }
+  - { symbol: STLD  , name: 钢动力           , sector: 基础材料 }
+  - { symbol: VMC   , name: 火神材料          , sector: 基础材料 }
+
+  # ── 公用事业 ────────────────────────────────────────────────
+  - { symbol: AEE   , name: 阿曼瑞恩          , sector: 公用事业 }
+  - { symbol: AEP   , name: 美国电力          , sector: 公用事业 }
+  - { symbol: CEG   , name: Constellation , sector: 公用事业 }
+  - { symbol: D     , name: 道明尼能源         , sector: 公用事业 }
+  - { symbol: DUK   , name: 杜克能源          , sector: 公用事业 }
+  - { symbol: ED    , name: 联合爱迪生         , sector: 公用事业 }
+  - { symbol: EIX   , name: 爱迪生国际         , sector: 公用事业 }
+  - { symbol: ES    , name: Eversource    , sector: 公用事业 }
+  - { symbol: EXC   , name: 爱克斯龙          , sector: 公用事业 }
+  - { symbol: FE    , name: 第一能源          , sector: 公用事业 }
+  - { symbol: NEE   , name: 新纪元能源         , sector: 公用事业 }
+  - { symbol: PEG   , name: PSEG          , sector: 公用事业 }
+  - { symbol: PPL   , name: PPL           , sector: 公用事业 }
+  - { symbol: SO    , name: 南方电力          , sector: 公用事业 }
+  - { symbol: SRE   , name: 桑普拉能源         , sector: 公用事业 }
+  - { symbol: VST   , name: Vistra        , sector: 公用事业 }
+  - { symbol: WEC   , name: WEC 能源        , sector: 公用事业 }
+  - { symbol: XEL   , name: 埃克塞尔能源        , sector: 公用事业 }
+
+  # ── 房地产 ──────────────────────────────────────────────────
+  - { symbol: AMT   , name: 美国电塔          , sector: 房地产 }
+  - { symbol: ARE   , name: 亚历山大地产        , sector: 房地产 }
+  - { symbol: BXP   , name: BXP           , sector: 房地产 }
+  - { symbol: CBRE  , name: 世邦魏理仕         , sector: 房地产 }
+  - { symbol: CCI   , name: 冠城国际          , sector: 房地产 }
+  - { symbol: CSGP  , name: CoStar        , sector: 房地产 }
+  - { symbol: DLR   , name: 数字房地产         , sector: 房地产 }
+  - { symbol: EQIX  , name: Equinix       , sector: 房地产 }
+  - { symbol: IRM   , name: 铁山            , sector: 房地产 }
+  - { symbol: KIM   , name: Kimco         , sector: 房地产 }
+  - { symbol: O     , name: Realty Income , sector: 房地产 }
+  - { symbol: PLD   , name: 安博            , sector: 房地产 }
+  - { symbol: PSA   , name: 公共存储          , sector: 房地产 }
+  - { symbol: SPG   , name: 西蒙地产          , sector: 房地产 }
+  - { symbol: VICI  , name: VICI Properties, sector: 房地产 }
+  - { symbol: VTR   , name: Ventas        , sector: 房地产 }
+  - { symbol: WELL  , name: Welltower     , sector: 房地产 }

@@ -1,0 +1,103 @@
+[project]
+name = "stockbubble"
+version = "0.1.0"
+description = "Multi-asset market-cap bubble board: crypto + US equities in one canvas."
+readme = "README.md"
+authors = [
+    { name = "liuBingWei", email = "3134058912@qq.com" },
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.162.0",
+    "httpx>=0.28.1",
+    "openbb>=5.0.0",
+    "openbb-equity>=2.0.0",
+    "openbb-yfinance>=2.1.0",
+    "pydantic>=2.14.3",
+    "pydantic-settings>=2.16.2",
+    "pyyaml>=6.0.3",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.scripts]
+stockbubble = "stockbubble.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.9.30,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.15",
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.4.1.post1",
+    "respx>=0.23.1",
+    "ruff>=0.17.4",
+    "types-pyyaml>=6.0.12.20261103",
+]
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+extend-exclude = ["web/vendor", ".venv"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",      # pycodestyle / pyflakes
+    "I",                # import sorting
+    "UP",               # pyupgrade
+    "B",                # bugbear
+    "C4",               # comprehensions
+    "SIM",              # simplify
+    "RUF",              # ruff-specific
+    "ASYNC",            # async pitfalls
+    "DTZ",              # timezone-aware datetimes
+    "LOG",              # logging pitfalls
+    "N",                # pep8 naming
+    "S",                # bandit
+    "PIE",              # misc lints
+    "RET",              # return consistency
+    "TID",              # tidy imports (banned relative imports)
+]
+ignore = [
+    "RUF001", "RUF002", "RUF003",  # ambiguous unicode in Chinese strings/comments
+    "N818",                        # exceptions read better without an "Error" suffix
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["stockbubble"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S105", "S106"]
+
+# ---------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+disallow_any_unimported = true
+show_error_codes = true
+plugins = ["pydantic.mypy"]
+files = ["src", "tests"]
+explicit_package_bases = true
+namespace_packages = true
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["pytest", "_pytest.*"]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q --strict-markers"
+filterwarnings = ["error::DeprecationWarning:stockbubble.*"]

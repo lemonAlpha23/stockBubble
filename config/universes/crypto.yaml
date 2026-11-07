@@ -1,0 +1,348 @@
+# 加密货币 · 市值前 220（动态 universe：由 CoinGecko 决定成分）
+#
+# 模型定义见 src/stockbubble/domain/models.py::Universe
+# 规则提醒：sectors 的键 = 大写 symbol；exclude 的取值 = 大写 symbol。
+id: crypto
+name: 加密货币 · 主流
+asset_class: crypto
+provider: coingecko
+currency: USD
+default_window: 24h
+supported_windows: [1h, 24h, 7d, 30d]
+limit: 220
+# 榜外的新币（每天都有）没有手写分类时落到这个板块，避免出现「未分类」
+fallback_sector: 其他
+
+# 稳定币、代币化国债与包装/质押凭证几乎没有价格波动，却会吃掉气泡面积，直接排除
+exclude:
+  # --- 法币稳定币 ---
+  - USDT
+  - USDC
+  - USDS
+  - DAI
+  - FDUSD
+  - USDE
+  - TUSD
+  - BUSD
+  - PYUSD
+  - USD1
+  - USDD
+  - USDP
+  - GHO
+  - FRAX
+  - LUSD
+  - RLUSD
+  - USDG
+  - USDF
+  - USDGO
+  - BFUSD
+  - OUSD
+  - USX
+  - USAT
+  - AUSD
+  - USDAI
+  - USD0
+  - GUSD
+  - CRVUSD
+  - REUSD
+  - A7A5
+  - EURC
+  - EURCV
+  - JPYSC
+  - EURSAFO
+  # --- 代币化国债 / 货币基金 / 私募信贷 ---
+  - USDY
+  - USYC
+  - USTB
+  - USTBL
+  - JAAA
+  - YLDS
+  - BUIDL
+  - SOFID
+  - PC0000031
+  - PC0000033
+  - PC0000097
+  - PC0000015
+  - PC0000023
+  - PC0000085
+  - STABLE
+  - THBILL
+  - AVUSD
+  - USD3
+  - USDAT
+  - CRCLB
+  - CRCLX
+  # --- 包装与质押凭证 ---
+  - WBTC
+  - WETH
+  - WSTETH
+  - STETH
+  - WEETH
+  - WBETH
+  - CBBTC
+  - RETH
+  - CBETH
+  - LBTC
+  - SOLVBTC
+  - WBNB
+  - BGBTC
+
+  # --- 2026-11 新增稳定币（不在白名单里也要排掉，否则是一片零波动气泡）---
+  - U
+  - UUSD
+  - APYUSD
+  - APXUSD
+sectors:
+  # --- 第一层 ---
+  A: 第一层
+  ADA: 第一层
+  ALGO: 第一层
+  APT: 第一层
+  ATOM: 第一层
+  AVAX: 第一层
+  BNB: 第一层
+  BTC: 第一层
+  CFX: 第一层
+  DOT: 第一层
+  EGLD: 第一层
+  ETC: 第一层
+  ETH: 第一层
+  FLR: 第一层
+  GRAM: 第一层
+  HASH: 第一层
+  HBAR: 第一层
+  ICP: 第一层
+  IOTA: 第一层
+  KAIA: 第一层
+  KAS: 第一层
+  KITE: 第一层
+  M: 第一层
+  MON: 第一层
+  NEAR: 第一层
+  NEO: 第一层
+  OZO: 第一层
+  PI: 第一层
+  S: 第一层
+  SEI: 第一层
+  SOL: 第一层
+  SUI: 第一层
+  TRX: 第一层
+  ULTIMA: 第一层
+  VET: 第一层
+  VSN: 第一层
+  XCN: 第一层
+  XDC: 第一层
+  XPL: 第一层
+  XTZ: 第一层
+
+  # --- 第二层 ---
+  ARB: 第二层
+  IMX: 第二层
+  MNT: 第二层
+  NIGHT: 第二层
+  OP: 第二层
+  POL: 第二层
+  STRK: 第二层
+  ZK: 第二层
+
+  # --- 比特币生态 ---
+  BR: 比特币生态
+  STX: 比特币生态
+
+  # --- DeFi ---
+  1INCH: DeFi
+  AAVE: DeFi
+  AERO: DeFi
+  ASTER: DeFi
+  AUTO: DeFi
+  BORG: DeFi
+  CAKE: DeFi
+  CAP: DeFi
+  COMP: DeFi
+  CRV: DeFi
+  CVX: DeFi
+  DRV: DeFi
+  EDGE: DeFi
+  EIGEN: DeFi
+  ENA: DeFi
+  ETHFI: DeFi
+  FF: DeFi
+  FLUID: DeFi
+  HYPE: DeFi
+  INJ: DeFi
+  JST: DeFi
+  JTO: DeFi
+  JUP: DeFi
+  KMNO: DeFi
+  KNTQ: DeFi
+  LDO: DeFi
+  LIT: DeFi
+  MET: DeFi
+  MORPHO: DeFi
+  NEXO: DeFi
+  OHM: DeFi
+  PENDLE: DeFi
+  RAY: DeFi
+  RUNE: DeFi
+  SKY: DeFi
+  SN51: DeFi
+  SNX: DeFi
+  SUN: DeFi
+  SYRUP: DeFi
+  UNI: DeFi
+  WLFI: DeFi
+
+  # --- 交易所 ---
+  BGB: 交易所
+  BP: 交易所
+  BTSE: 交易所
+  CRO: 交易所
+  GT: 交易所
+  HTX: 交易所
+  KCS: 交易所
+  LEO: 交易所
+  MX: 交易所
+  OKB: 交易所
+  RLB: 交易所
+  TWT: 交易所
+  WBT: 交易所
+
+  # --- Meme ---
+  APEPE: Meme
+  B: Meme
+  BONK: Meme
+  COCO: Meme
+  DOGE: Meme
+  FARTCOIN: Meme
+  FLOKI: Meme
+  LUNC: Meme
+  NPC: Meme
+  PENGU: Meme
+  PEPE: Meme
+  PUMP: Meme
+  SHIB: Meme
+  SPX: Meme
+  TRUMP: Meme
+  USELESS: Meme
+  WIF: Meme
+  币安人生: Meme
+
+  # --- AI ---
+  AIOZ: AI
+  AKT: AI
+  DGAI: AI
+  FET: AI
+  GRASS: AI
+  NFT: AI
+  Q: AI
+  RENDER: AI
+  SENT: AI
+  TAO: AI
+  UB: AI
+  VIRTUAL: AI
+  VVV: AI
+
+  # --- 游戏 ---
+  APE: 游戏
+  AXS: 游戏
+  BC: 游戏
+  CHZ: 游戏
+  MANA: 游戏
+  SAND: 游戏
+  SHFL: 游戏
+  SUPER: 游戏
+
+  # --- RWA ---
+  ALFW: RWA
+  CARDS: RWA
+  CC: RWA
+  EUTBL: RWA
+  FIGR_HELOC: RWA
+  KAG: RWA
+  KAU: RWA
+  MGLO: RWA
+  NOPAL: RWA
+  ONDO: RWA
+  ONYC: RWA
+  OUSG: RWA
+  PAXG: RWA
+  PC0000077: RWA
+  PEARL: RWA
+  SAFO: RWA
+  STAC: RWA
+  XAUT: RWA
+
+  # --- 稳定币 ---
+  APXUSD: 稳定币
+  APYUSD: 稳定币
+  U: 稳定币
+  UUSD: 稳定币
+
+  # --- 代币化股票 ---
+  GOOGLB: 代币化股票
+  MSTRX: 代币化股票
+  SNDKB: 代币化股票
+  SPCXB: 代币化股票
+  STRCX: 代币化股票
+
+  # --- 预言机 ---
+  LINK: 预言机
+  PYTH: 预言机
+
+  # --- 隐私 ---
+  BDX: 隐私
+  BEAM: 隐私
+  DCR: 隐私
+  RAIL: 隐私
+  XMR: 隐私
+  ZAMA: 隐私
+  ZEC: 隐私
+
+  # --- 支付 ---
+  BCH: 支付
+  BSV: 支付
+  DASH: 支付
+  LTC: 支付
+  XEC: 支付
+  XLM: 支付
+  XRP: 支付
+  ZBCN: 支付
+
+  # --- 存储 ---
+  AR: 存储
+  FIL: 存储
+
+  # --- 基础设施 ---
+  2Z: 基础设施
+  ANVL: 基础设施
+  ATH: 基础设施
+  AWE: 基础设施
+  BAT: 基础设施
+  BTT: 基础设施
+  ENS: 基础设施
+  GEOD: 基础设施
+  GLM: 基础设施
+  GNO: 基础设施
+  GRT: 基础设施
+  H: 基础设施
+  JASMY: 基础设施
+  QNT: 基础设施
+  SFP: 基础设施
+  SOSO: 基础设施
+  THETA: 基础设施
+  TIA: 基础设施
+  TRAC: 基础设施
+  WLD: 基础设施
+  ZRO: 基础设施
+
+  # --- 其他 ---
+  AKE: 其他
+  BTW: 其他
+  CASH: 其他
+  GENIUS: 其他
+  GOMINING: 其他
+  KOGE: 其他
+  PIEVERSE: 其他
+  PONS: 其他
+  RAIN: 其他
+  YELLOW: 其他
