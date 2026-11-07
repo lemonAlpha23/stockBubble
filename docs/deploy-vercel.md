@@ -1,9 +1,9 @@
 # 部署到 Vercel
 
-看板是「FastAPI + 静态前端」的单进程应用，Vercel 没有常驻进程，所以整站被塞进**一个** Python 函数：`api/index.py` 把 `src/` 加进 import 路径后直接复用 `stockbubble.api.asgi:app`，前端由 app 里已有的 `StaticFiles` 托管（和本地一致）。`vercel.json` 只做两件事：给函数 60s 超时 + 把 `src/ config/ web/` 一起打进 bundle。
+看板是「FastAPI + 静态前端」应用。`api/index.py` 把 `src/` 加进 import 路径后复用 `stockbubble.api.asgi:app`，前端由 `StaticFiles` 托管。`vercel.json` 选择 FastAPI 框架、设置函数 60s 超时并打包 `src/ config/ web/`；`pyproject.toml` 的 `[tool.vercel]` 显式指定 `api.index:app`。由框架把原始请求路径交给应用，不再配置全路径 rewrite。
 
 ```
-vercel.json          # functions.includeFiles + 全路径 rewrite 到函数
+vercel.json          # FastAPI 框架 + functions.includeFiles
 api/index.py         # 函数入口（sys.path / 绝对路径 / 默认 yahoo 源）
 pyproject.toml       # 默认服务端依赖；OpenBB 放在可选 extra 中
 uv.lock              # 锁定依赖版本（默认不会安装 OpenBB extra）
@@ -22,7 +22,9 @@ git remote add origin https://github.com/<you>/stockBubble.git
 git push -u origin main
 ```
 
-然后在 Vercel 里 **Add New → Project → Import Git Repository → 选这个仓库 → Deploy**，框架预设选 **Other**，Build Command 留空、Output Directory 留空、Install Command 留空。Vercel 支持 `pyproject.toml` / `uv.lock`，也支持 `requirements.txt`；两种方式的默认依赖都不含 OpenBB。不要配置 `uv sync --all-extras` 或 `uv sync --extra openbb` 等安装命令，Node 侧不需要构建。
+然后在 Vercel 里 **Add New → Project → Import Git Repository → 选这个仓库 → Deploy**，框架预设选 **FastAPI**，Root Directory 选仓库根目录，Build Command 留空、Output Directory 留空、Install Command 留空。Vercel 支持 `pyproject.toml` / `uv.lock`，也支持 `requirements.txt`；两种方式的默认依赖都不含 OpenBB。不要配置 `uv sync --all-extras` 或 `uv sync --extra openbb` 等安装命令，Node 侧不需要构建。
+
+如果首页、`/api/health` 和静态资源全部返回 `{"detail":"Not Found"}`，先检查部署是否包含最新入口和框架配置，以及控制台是否保留了旧的构建或路由覆盖设置。项目已有首页静态挂载，不需要增加返回欢迎 JSON 的根路由。
 
 不需要任何环境变量；如果要改缓存或标题，加 `BUBBLE_*` 即可（见 README 的配置表）。
 
@@ -37,7 +39,7 @@ vercel --prod     # 出正式域名
 
 CLI 会把当前目录打包上传（`.vercelignore` 已排除 `.venv`、`tests`、`docs`）。
 
-## 三、部署后要接受的三个事实
+## 三、部署后的行为（下方替代路由示例仅供历史参考）
 
 1. **冷启动会重新取数**：`TTLCache` 是进程内内存，函数实例回收（几十秒没请求）后第一次请求要重新打上游 —— 加密约 1.2s，美股约 6s（crumb + 258 只批量 + spark）。我给了 `maxDuration: 60`，热实例下 `/api/bubbles` 通常 0.05–0.3s。
 2. **OpenBB 没装**：它是可选的慢路由（两百多个包、单只票 1s），函数入口里显式 `BUBBLE_US_PROVIDER=yahoo`，走批量源。
@@ -72,7 +74,7 @@ OK   /vendor/planck.min.js                         200 (297472B)
 us_equity: 3 nodes, warnings=[]
 ```
 
-## 五、如果 `functions` 配置被拒（老账号/旧 schema）
+## 五、历史配置参考（不与当前 FastAPI 框架配置混用）
 
 把 `vercel.json` 换成 legacy `builds` 写法（`builds` 和 `functions` 不能同时出现）：
 
