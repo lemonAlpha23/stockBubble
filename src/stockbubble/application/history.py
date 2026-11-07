@@ -20,7 +20,7 @@ class SeriesResult:
 
 
 class HistoryService:
-    """Resolves a symbol through the cached feed, then asks for its series."""
+    """Read the series cache before resolving a symbol through the quote feed."""
 
     def __init__(
         self,
@@ -44,30 +44,33 @@ class HistoryService:
     ) -> SeriesResult:
         universe = self._universes.get(universe_id)
         wanted = symbol.strip().upper()
-        feed = await self._feed.quotes(universe)
-        quote = next((item for item in feed.quotes if item.symbol == wanted), None)
-        if quote is None:
-            raise SymbolNotFound(f"symbol {wanted!r} is not part of universe {universe.id!r}")
-
         provider = self._providers.get(universe.provider)
         if not isinstance(provider, PriceSeriesProvider):
             raise HistoryUnavailable(f"provider {provider.provider_id!r} has no history support")
 
-        external_id = quote.external_id or quote.symbol
-        key = f"series:{provider.provider_id}:{external_id}:{timeframe.value}"
-        cached = await self._cache.load(
-            key,
-            lambda: provider.fetch_series(
-                external_id=external_id,
+        key = (
+            f"series:{provider.provider_id}:{universe.id}:{universe.currency}:"
+            f"{wanted}:{timeframe.value}"
+        )
+
+        async def load_series() -> SeriesResult:
+            feed = await self._feed.quotes(universe)
+            quote = next((item for item in feed.quotes if item.symbol == wanted), None)
+            if quote is None:
+                raise SymbolNotFound(f"symbol {wanted!r} is not part of universe {universe.id!r}")
+            points = await provider.fetch_series(
+                external_id=quote.external_id or quote.symbol,
                 timeframe=timeframe,
                 currency=quote.currency,
-            ),
-        )
-        if not cached.value:
-            raise HistoryUnavailable(f"no history for {wanted} ({timeframe.value})")
-        return SeriesResult(
-            symbol=wanted,
-            timeframe=timeframe,
-            points=tuple(cached.value),
-            source=provider.provider_id,
-        )
+            )
+            if not points:
+                raise HistoryUnavailable(f"no history for {wanted} ({timeframe.value})")
+            return SeriesResult(
+                symbol=wanted,
+                timeframe=timeframe,
+                points=tuple(points),
+                source=provider.provider_id,
+            )
+
+        cached = await self._cache.load(key, load_series)
+        return cached.value

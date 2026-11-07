@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 from tests.conftest import FakeProvider, make_quote
 
@@ -17,12 +19,13 @@ def build_service(
     provider: FakeProvider,
     *,
     cache: TTLCache | None = None,
+    quote_cache: TTLCache | None = None,
 ) -> HistoryService:
     registry = ProviderRegistry()
     registry.register(provider)
     return HistoryService(
         universes=YamlUniverseRepository([universe]),
-        feed=MarketFeed(providers=registry, cache=TTLCache(60.0)),
+        feed=MarketFeed(providers=registry, cache=quote_cache or TTLCache(60.0)),
         providers=registry,
         cache=cache or TTLCache(60.0),
     )
@@ -59,6 +62,36 @@ async def test_series_is_cached_per_timeframe(universe: Universe) -> None:
 
     await service.series(universe_id="equity", symbol="AAA", timeframe=Timeframe.Y1)
     assert provider.series_calls == 2
+
+
+async def test_cached_history_does_not_refresh_expired_quotes(universe: Universe) -> None:
+    now = [100.0]
+    provider = FakeProvider(quotes=(make_quote("AAA"),), points=(PricePoint(t=1, c=2.0),))
+    service = build_service(
+        universe,
+        provider,
+        quote_cache=TTLCache(1.0, clock=lambda: now[0]),
+        cache=TTLCache(300.0, clock=lambda: now[0]),
+    )
+    first = await service.series(universe_id="equity", symbol="AAA", timeframe=Timeframe.M1)
+    now[0] += 60
+    provider.error = RuntimeError("quote source unavailable")
+    second = await service.series(universe_id="equity", symbol="aaa", timeframe=Timeframe.M1)
+    assert second == first
+    assert provider.quote_calls == provider.series_calls == 1
+
+
+async def test_concurrent_history_shares_complete_load(universe: Universe) -> None:
+    provider = FakeProvider(quotes=(make_quote("AAA"),), points=(PricePoint(t=1, c=2.0),))
+    service = build_service(universe, provider)
+    results = await asyncio.gather(
+        *[
+            service.series(universe_id="equity", symbol="AAA", timeframe=Timeframe.M1)
+            for _ in range(5)
+        ]
+    )
+    assert all(result == results[0] for result in results)
+    assert provider.quote_calls == provider.series_calls == 1
 
 
 async def test_unknown_symbol_raises(universe: Universe) -> None:

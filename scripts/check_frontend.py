@@ -176,6 +176,17 @@ def main() -> None:
             assert page.evaluate("window.historyCalls.length") == count, "Fresh cache missed"
             page.evaluate("window.clockOffset += 61000; window.slowHistory = true")
             select("AAA")
+            assert "AAA" in page.locator("#spark-meta").inner_text(), (
+                "Stale chart not shown immediately"
+            )
+            assert page.locator(".spark-line").get_attribute("d"), "Stale chart was cleared"
+            pending_count = page.evaluate("window.historyCalls.length")
+            select("AAA")
+            assert page.evaluate("window.historyCalls.length") == pending_count, "Duplicate refresh"
+            page.wait_for_timeout(650)
+            assert "AAA" in page.locator("#spark-meta").inner_text(), "Failed refresh cleared cache"
+            assert page.locator(".spark-line").get_attribute("d"), "Failed refresh cleared chart"
+            select("AAA")
             select("BBB")
             page.wait_for_timeout(650)
             assert "BBB" in page.locator("#spark-meta").inner_text(), "Old failure overwrote chart"

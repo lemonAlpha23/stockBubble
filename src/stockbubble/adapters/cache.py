@@ -65,17 +65,15 @@ class TTLCache:
                     age_seconds=now - fresh.stored_at,
                 )
             task = self._inflight.get(key)
-            owner = task is None
             if task is None:
                 task = asyncio.ensure_future(loader())
                 task.set_name(f"cache-load:{key}")
                 self._inflight[key] = task
+                task.add_done_callback(lambda done: self._loaded(key, done))
 
         try:
-            value: T = await task
-        except BaseException:
-            if owner:
-                self._inflight.pop(key, None)
+            value: T = await asyncio.shield(task)
+        except Exception:
             stale = self._entries.get(key)
             if stale is not None:
                 return Cached(
@@ -85,12 +83,15 @@ class TTLCache:
                 )
             raise
 
-        stored_at = self._clock()
-        if owner:
-            self._inflight.pop(key, None)
-            self._entries[key] = _Entry(value=value, stored_at=stored_at)
-            self._evict()
         return Cached(value=value, stale=False, age_seconds=0.0)
+
+    def _loaded(self, key: str, task: asyncio.Future[Any]) -> None:
+        """Finish shared loads even when the initiating request was cancelled."""
+        self._inflight.pop(key, None)
+        if task.cancelled() or task.exception() is not None:
+            return
+        self._entries[key] = _Entry(value=task.result(), stored_at=self._clock())
+        self._evict()
 
     def invalidate(self, key: str | None = None) -> None:
         if key is None:

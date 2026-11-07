@@ -53,9 +53,11 @@
   // 气泡口径默认「24h 成交额」：成交额比市值更快反映当下资金在关注谁
   const DEFAULT_SIZE = 'volume';
   const HISTORY_TTL_MS = 60_000;
+  const HISTORY_STALE_MS = 15 * 60_000;
   const HISTORY_CACHE_LIMIT = 64;
   let snapshotRequest = null;
   let historyRequest = null;
+  let historyRequestKey = null;
   let historyToken = 0;
 
   const state = {
@@ -1586,38 +1588,55 @@
   }
 
   async function loadHistory(symbol, quiet) {
-    const token = ++historyToken;
-    historyRequest?.abort();
-    historyRequest = new AbortController();
     const universe = state.universe;
     const timeframe = state.timeframe;
     const key = `${universe}:${symbol}:${timeframe}`;
+    if (historyRequestKey === key && !historyRequest?.signal.aborted) return;
+    const token = ++historyToken;
+    historyRequest?.abort();
+    historyRequest = new AbortController();
+    historyRequestKey = null;
     const current = () => token === historyToken && state.universe === universe
       && state.selected === symbol && state.timeframe === timeframe;
     const cached = state.historyCache.get(key);
-    let series = cached && Date.now() - cached.storedAt < HISTORY_TTL_MS ? cached.series : null;
-    if (!series) {
-      if (!quiet) {
-        el.sparkMeta.textContent = '加载走势…';
-        drawSparkline([]);
+    const age = cached ? Date.now() - cached.storedAt : Infinity;
+    const showCached = cached && age < HISTORY_STALE_MS;
+    if (showCached) {
+      paintHistory(cached.series);
+      if (age < HISTORY_TTL_MS) return;
+      el.sparkMeta.append(' · 缓存走势，更新中…');
+    } else if (!quiet) {
+      el.sparkMeta.textContent = '加载走势…';
+      drawSparkline([]);
+    }
+    historyRequestKey = key;
+    try {
+      const params = new URLSearchParams({ universe, symbol, timeframe });
+      const series = await fetchJSON(`${API.history}?${params.toString()}`, {
+        signal: historyRequest.signal,
+      });
+      if (!current()) return;
+      state.historyCache.delete(key);
+      state.historyCache.set(key, { series, storedAt: Date.now() });
+      while (state.historyCache.size > HISTORY_CACHE_LIMIT) {
+        state.historyCache.delete(state.historyCache.keys().next().value);
       }
-      try {
-        const params = new URLSearchParams({ universe, symbol, timeframe });
-        series = await fetchJSON(`${API.history}?${params.toString()}`, { signal: historyRequest.signal });
-        if (!current()) return;
-        state.historyCache.delete(key);
-        state.historyCache.set(key, { series, storedAt: Date.now() });
-        while (state.historyCache.size > HISTORY_CACHE_LIMIT) {
-          state.historyCache.delete(state.historyCache.keys().next().value);
-        }
-      } catch (error) {
-        if (!current() || error.name === 'AbortError') return;
+      paintHistory(series);
+    } catch (error) {
+      if (!current() || error.name === 'AbortError') return;
+      if (showCached) {
+        paintHistory(cached.series);
+        el.sparkMeta.append(' · 更新失败，显示缓存走势');
+      } else {
         el.sparkMeta.textContent = `走势不可用：${error.message}`;
         drawSparkline([]);
-        return;
       }
+    } finally {
+      if (token === historyToken) historyRequestKey = null;
     }
-    if (!current()) return;
+  }
+
+  function paintHistory(series) {
     drawSparkline(series.points || []);
     const points = series.points || [];
     if (points.length >= 2) {

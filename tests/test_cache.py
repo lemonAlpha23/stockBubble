@@ -78,6 +78,54 @@ async def test_failure_falls_back_to_stale_value(clock: Clock) -> None:
     assert cached.age_seconds == pytest.approx(30.0)
 
 
+async def test_cancelled_request_does_not_cancel_shared_loader(clock: Clock) -> None:
+    cache = TTLCache(60.0, clock=clock)
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    calls = 0
+
+    async def loader() -> str:
+        nonlocal calls
+        calls += 1
+        entered.set()
+        await release.wait()
+        return "shared"
+
+    first = asyncio.create_task(cache.load("k", loader))
+    await entered.wait()
+    second = asyncio.create_task(cache.load("k", loader))
+    first.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await first
+    release.set()
+    assert (await second).value == "shared"
+    assert (await cache.load("k", loader)).value == "shared"
+    assert calls == 1
+
+
+async def test_load_finishes_and_caches_after_sole_waiter_cancels(clock: Clock) -> None:
+    cache = TTLCache(60.0, clock=clock)
+    entered = asyncio.Event()
+    release = asyncio.Event()
+
+    async def loader() -> str:
+        entered.set()
+        await release.wait()
+        return "finished"
+
+    request = asyncio.create_task(cache.load("k", loader))
+    await entered.wait()
+    request.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await request
+    release.set()
+    # Yield for the loader and its completion callback.
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    assert cache.age("k") is not None
+    assert (await cache.load("k", _constant("unexpected reload"))).value == "finished"
+
+
 async def test_failure_without_previous_value_propagates(clock: Clock) -> None:
     cache = TTLCache(5.0, clock=clock)
 
