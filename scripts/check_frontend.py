@@ -114,6 +114,9 @@ def main() -> None:
                 const symbol = params.get('symbol');
                 const delayed = window.slowHistory && symbol === 'AAA';
                 window.historyCalls.push(symbol);
+                if (window.historyRateLimited) return Promise.resolve(new Response(JSON.stringify({
+                  error: {code: 'provider_rate_limited', message: 'Rate limit'}
+                }), {status: 429, headers: {'Retry-After': '60'}}));
                 options.signal?.addEventListener('abort', () => window.historyAborts++);
                 // Deliberately let an old failure arrive after cancellation, to test the UI guard.
                 return new Promise((resolve, reject) => setTimeout(() => {
@@ -193,6 +196,22 @@ def main() -> None:
             assert page.evaluate("window.historyAborts") > 0, "Old request not cancelled"
             assert page.evaluate("window.historyCalls.length") > count, (
                 "Expired cache not refreshed"
+            )
+            page.evaluate("window.historyRateLimited = true")
+            page.locator('#timeframes button[data-value="1y"]').click()
+            page.wait_for_function(
+                "document.getElementById('spark-meta').textContent.includes('Rate limit')"
+            )
+            limited_calls = page.evaluate("window.historyCalls.length")
+            page.locator('#timeframes button[data-value="3mo"]').click()
+            assert page.evaluate("window.historyCalls.length") == limited_calls, "Cooldown ignored"
+            page.evaluate("window.clockOffset += 61000; window.historyRateLimited = false")
+            page.locator('#timeframes button[data-value="3mo"]').click()
+            page.wait_for_function(
+                "document.getElementById('spark-meta').textContent.includes('BBB')"
+            )
+            assert page.evaluate("window.historyCalls.length") > limited_calls, (
+                "Cooldown never ended"
             )
             page.locator("#detail-close").click()
             page.evaluate("document.getElementById('controls-toggle').click()")

@@ -66,6 +66,7 @@ class CoinGeckoProvider:
             provider=self.provider_id,
             timeout=timeout,
             retries=retries,
+            rate_limit_cooldown=60,
         )
         self._api_key = api_key
         self._page_size = max(1, min(page_size, 250))
@@ -120,6 +121,7 @@ class CoinGeckoProvider:
         payload = await self._client.get_json(
             f"/coins/{external_id}/market_chart",
             params={"vs_currency": currency.lower(), "days": days},
+            headers=self._auth_headers(),
         )
         prices = payload.get("prices") if isinstance(payload, dict) else None
         if not isinstance(prices, list):

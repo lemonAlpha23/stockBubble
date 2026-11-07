@@ -68,6 +68,11 @@ uv run --script scripts/check_frontend.py
 服务端优先检查走势图缓存，命中后不再等待整批行情刷新；取消单个请求不会中断其他请求共享的加载。
 网络请求默认 20 秒超时。
 
+CoinGecko 返回 429 时不会立即连续重试，而会进入至少 60 秒的冷却期；
+若上游提供更长的 `Retry-After`，会相应延长（最长一小时）。冷却期间保留可用缓存并提示稍后重试。
+可在 Vercel 环境变量中设置 `BUBBLE_COINGECKO_API_KEY`，行情和走势图都会携带 Demo API Key；
+这不能保证完全避免上游限流。
+
 页面底部及 `/api/health`、`/api/config` 显示应用版本和部署提交。Vercel Git 部署使用
 `VERCEL_GIT_COMMIT_SHA`；其他部署方式可设置 `BUBBLE_BUILD_SHA`，未提供时只显示应用版本。
 

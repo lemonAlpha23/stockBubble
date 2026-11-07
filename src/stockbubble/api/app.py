@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from stockbubble import __version__
 from stockbubble.api.routes import UiSettings, build_router
 from stockbubble.application.services import AppServices
-from stockbubble.domain.errors import BubbleError
+from stockbubble.domain.errors import BubbleError, ProviderRateLimited
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,12 @@ def create_app(
     async def _bubble_error(request: Request, exc: BubbleError) -> JSONResponse:
         if exc.status >= 500:
             logger.warning("%s %s -> %s", request.method, request.url.path, exc.code, exc_info=exc)
-        return JSONResponse(status_code=exc.status, content={"error": exc.as_payload()})
+        headers = (
+            {"Retry-After": str(exc.retry_after)} if isinstance(exc, ProviderRateLimited) else None
+        )
+        return JSONResponse(
+            status_code=exc.status, content={"error": exc.as_payload()}, headers=headers
+        )
 
     @app.exception_handler(RequestValidationError)
     async def _invalid_request(request: Request, exc: RequestValidationError) -> JSONResponse:

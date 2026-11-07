@@ -17,6 +17,7 @@ from stockbubble.application.feed import MarketFeed
 from stockbubble.application.history import HistoryService
 from stockbubble.application.registry import ProviderRegistry
 from stockbubble.application.services import AppServices
+from stockbubble.domain.errors import ProviderRateLimited
 from stockbubble.domain.models import PricePoint
 
 NOW = datetime(2026, 11, 6, 4, 0, tzinfo=UTC)
@@ -164,6 +165,16 @@ async def test_health_reports_providers_and_universes(client: AsyncClient) -> No
     assert [provider["id"] for provider in body["providers"]] == ["fake"]
     assert body["providers"][0]["windows"] == ["24h", "7d", "30d"]
     assert body["universes"] == 2
+
+
+async def test_history_rate_limit_exposes_retry_after(
+    client: AsyncClient, provider: FakeProvider
+) -> None:
+    provider.error = ProviderRateLimited("fake", 120)
+    response = await client.get("/api/history", params={"symbol": "AAA"})
+    assert response.status_code == 429
+    assert response.headers["retry-after"] == "120"
+    assert response.json()["error"]["code"] == "provider_rate_limited"
 
 
 async def test_config_and_health_share_deployment_revision(

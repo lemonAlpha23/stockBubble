@@ -7,7 +7,7 @@ import pytest
 import respx
 
 from stockbubble.adapters.coingecko import CoinGeckoProvider
-from stockbubble.domain.errors import ProviderUnavailable, UniverseConfigError
+from stockbubble.domain.errors import ProviderRateLimited, ProviderUnavailable, UniverseConfigError
 from stockbubble.domain.models import AssetClass, ChangeWindow, DataQuality, Timeframe, Universe
 
 BASE = "https://api.coingecko.com/api/v3"
@@ -178,3 +178,49 @@ async def test_series_without_prices_raises(crypto_universe: Universe) -> None:
             timeframe=Timeframe.M1,
             currency="USD",
         )
+
+
+@respx.mock
+async def test_year_series_sends_demo_key_and_365_days() -> None:
+    route = respx.get(f"{BASE}/coins/bitcoin/market_chart").mock(
+        return_value=httpx.Response(200, json={"prices": [[1_762_394_400_000, 60_000.0]]})
+    )
+    provider = build_provider(api_key="demo-key")
+    await provider.fetch_series(external_id="bitcoin", timeframe=Timeframe.Y1, currency="USD")
+    assert route.calls[0].request.url.params["days"] == "365"
+    assert route.calls[0].request.headers["x-cg-demo-api-key"] == "demo-key"
+    await provider.aclose()
+
+
+@respx.mock
+async def test_rate_limit_cools_down_without_retrying_or_switching_ranges(
+    crypto_universe: Universe,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = [100.0]
+    monkeypatch.setattr("stockbubble.adapters.http.monotonic", lambda: now[0])
+    route = respx.get(f"{BASE}/coins/bitcoin/market_chart").mock(
+        side_effect=[
+            httpx.Response(429, headers={"Retry-After": "120"}),
+            httpx.Response(200, json={"prices": [[1_762_394_400_000, 60_000.0]]}),
+        ]
+    )
+    markets = respx.get(f"{BASE}/coins/markets").mock(return_value=httpx.Response(200, json=[]))
+    provider = build_provider(retries=2)
+    with pytest.raises(ProviderRateLimited) as exc:
+        await provider.fetch_series(external_id="bitcoin", timeframe=Timeframe.Y1, currency="USD")
+    assert exc.value.retry_after == 120
+    assert route.call_count == 1
+    with pytest.raises(ProviderRateLimited):
+        await provider.fetch_series(external_id="bitcoin", timeframe=Timeframe.M1, currency="USD")
+    with pytest.raises(ProviderRateLimited):
+        await provider.fetch_quotes(crypto_universe)
+    assert route.call_count == 1
+    assert markets.call_count == 0
+    now[0] += 121
+    points = await provider.fetch_series(
+        external_id="bitcoin", timeframe=Timeframe.Y1, currency="USD"
+    )
+    assert points[0].c == 60_000.0
+    assert route.call_count == 2
+    await provider.aclose()

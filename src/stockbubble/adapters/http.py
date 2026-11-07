@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
+import time
 from collections.abc import Mapping
+from contextlib import suppress
+from email.utils import parsedate_to_datetime
+from time import monotonic
 from typing import Any
 
 import httpx
 
-from stockbubble.domain.errors import ProviderUnavailable
+from stockbubble.domain.errors import ProviderRateLimited, ProviderUnavailable
 
 LOGGER = logging.getLogger(__name__)
 
@@ -33,9 +38,12 @@ class JsonHttpClient:
         retries: int = 2,
         headers: Mapping[str, str] | None = None,
         client: httpx.AsyncClient | None = None,
+        rate_limit_cooldown: float = 0,
     ) -> None:
         self._provider = provider
         self._retries = max(0, retries)
+        self._rate_limit_cooldown = max(0.0, rate_limit_cooldown)
+        self._blocked_until = 0.0
         self._owns_client = client is None
         if client is not None:
             self._client = client
@@ -72,6 +80,9 @@ class JsonHttpClient:
         last_status: int | None = None
         last_error: str = "no attempt executed"
         for attempt in range(attempts):
+            remaining = self._blocked_until - monotonic()
+            if remaining > 0:
+                raise ProviderRateLimited(self._provider, math.ceil(remaining))
             retry_after: float | None = None
             try:
                 response = await self._client.request(method, path, params=params, headers=headers)
@@ -79,6 +90,20 @@ class JsonHttpClient:
                 last_error = f"{type(exc).__name__}: {exc}"
                 LOGGER.warning("%s: %s %s failed (%s)", self._provider, method, path, last_error)
             else:
+                if response.status_code == 429 and self._rate_limit_cooldown:
+                    cooldown = self._rate_limit_cooldown
+                    raw = response.headers.get("retry-after")
+                    if raw:
+                        try:
+                            cooldown = max(cooldown, float(raw))
+                        except ValueError:
+                            with suppress(ValueError, TypeError, OverflowError):
+                                cooldown = max(
+                                    cooldown, parsedate_to_datetime(raw).timestamp() - time.time()
+                                )
+                    cooldown = min(3600.0, cooldown)
+                    self._blocked_until = monotonic() + cooldown
+                    raise ProviderRateLimited(self._provider, math.ceil(cooldown))
                 if response.status_code not in RETRY_STATUS:
                     return response
                 last_status = response.status_code

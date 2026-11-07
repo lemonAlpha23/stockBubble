@@ -61,6 +61,21 @@ class ProviderUnavailable(BubbleError):
         self.provider = provider
 
 
+class ProviderRateLimited(ProviderUnavailable):
+    """The provider requested a cooldown before another attempt."""
+
+    code = "provider_rate_limited"
+    status = 429
+
+    def __init__(self, provider: str, retry_after: int) -> None:
+        self.retry_after = max(1, retry_after)
+        super().__init__(
+            provider,
+            "行情数据源请求频率受限",
+            hint=f"请在 {self.retry_after} 秒后重试；切换时间范围也可能受到同一限流影响",
+        )
+
+
 class HistoryUnavailable(BubbleError):
     code = "history_unavailable"
     status = 502

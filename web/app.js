@@ -77,6 +77,7 @@
     loading: false,
     requestToken: 0,
     historyCache: new Map(),
+    historyCooldowns: new Map(),
   };
 
   const el = {
@@ -230,7 +231,10 @@
       if (!response.ok) {
         const error = payload && payload.error ? payload.error : {};
         const detail = error.message || `${response.status} ${response.statusText}`;
-        throw new Error(error.hint ? `${detail}（${error.hint}）` : detail);
+        const failure = new Error(error.hint ? `${detail}（${error.hint}）` : detail);
+        failure.code = error.code;
+        failure.retryAfter = Math.min(3600, Math.max(1, Number(response.headers.get('Retry-After')) || 60));
+        throw failure;
       }
       if (payload === null) throw new Error('响应不是合法的 JSON');
       return payload;
@@ -1609,6 +1613,18 @@
       el.sparkMeta.textContent = '加载走势…';
       drawSparkline([]);
     }
+    const waitSeconds = Math.ceil(((state.historyCooldowns.get(universe) || 0) - Date.now()) / 1000);
+    if (waitSeconds > 0) {
+      const message = `行情源限流，请在 ${waitSeconds} 秒后重试`;
+      if (showCached) {
+        paintHistory(cached.series);
+        el.sparkMeta.append(` · 缓存走势，${message}`);
+      } else {
+        el.sparkMeta.textContent = message;
+        drawSparkline([]);
+      }
+      return;
+    }
     historyRequestKey = key;
     try {
       const params = new URLSearchParams({ universe, symbol, timeframe });
@@ -1624,6 +1640,9 @@
       paintHistory(series);
     } catch (error) {
       if (!current() || error.name === 'AbortError') return;
+      if (error.code === 'provider_rate_limited') {
+        state.historyCooldowns.set(universe, Date.now() + error.retryAfter * 1000);
+      }
       if (showCached) {
         paintHistory(cached.series);
         el.sparkMeta.append(' · 更新失败，显示缓存走势');
