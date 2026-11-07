@@ -5,7 +5,9 @@
 ```
 vercel.json          # functions.includeFiles + 全路径 rewrite 到函数
 api/index.py         # 函数入口（sys.path / 绝对路径 / 默认 yahoo 源）
-requirements.txt     # Vercel 只认这个（本地仍用 uv + pyproject.toml）
+pyproject.toml       # 默认服务端依赖；OpenBB 放在可选 extra 中
+uv.lock              # 锁定依赖版本（默认不会安装 OpenBB extra）
+requirements.txt     # 精简的服务端依赖清单
 .vercelignore        # 不上传 .venv、tests、docs、tmp-*
 ```
 
@@ -20,7 +22,7 @@ git remote add origin https://github.com/<you>/stockBubble.git
 git push -u origin main
 ```
 
-然后在 Vercel 里 **Add New → Project → Import Git Repository → 选这个仓库 → Deploy**，框架预设选 **Other**，Build Command 留空、Output Directory 留空、Install Command 留空（Vercel 会自动 `pip install -r requirements.txt`，Node 侧不需要构建）。
+然后在 Vercel 里 **Add New → Project → Import Git Repository → 选这个仓库 → Deploy**，框架预设选 **Other**，Build Command 留空、Output Directory 留空、Install Command 留空。Vercel 支持 `pyproject.toml` / `uv.lock`，也支持 `requirements.txt`；两种方式的默认依赖都不含 OpenBB。不要配置 `uv sync --all-extras` 或 `uv sync --extra openbb` 等安装命令，Node 侧不需要构建。
 
 不需要任何环境变量；如果要改缓存或标题，加 `BUBBLE_*` 即可（见 README 的配置表）。
 
@@ -44,7 +46,7 @@ CLI 会把当前目录打包上传（`.vercelignore` 已排除 `.venv`、`tests`
    ```json
    {
      "outputDirectory": "web",
-     "functions": { "api/index.py": { "maxDuration": 60, "memory": 1024, "includeFiles": ["src/**", "config/**"] } },
+     "functions": { "api/index.py": { "maxDuration": 60, "memory": 1024, "includeFiles": "{src,config}/**" } },
      "rewrites": [{ "source": "/api/(.*)", "destination": "/api/index.py" }]
    }
    ```

@@ -331,7 +331,7 @@ class OpenBBProvider:
             except ImportError as exc:
                 raise ProviderUnavailable(
                     self.provider_id,
-                    "OpenBB is not installed — run `uv sync` (openbb + openbb-equity)",
+                    "OpenBB is not installed — run `uv sync --extra openbb`",
                 ) from exc
             self._obb = obb
         return self._obb

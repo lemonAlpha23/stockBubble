@@ -4883,13 +4883,17 @@ source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
-    { name = "openbb" },
-    { name = "openbb-equity" },
-    { name = "openbb-yfinance" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyyaml" },
     { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.optional-dependencies]
+openbb = [
+    { name = "openbb" },
+    { name = "openbb-equity" },
+    { name = "openbb-yfinance" },
 ]
 
 [package.dev-dependencies]
@@ -4907,14 +4911,15 @@ dev = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.162.0" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "openbb", specifier = ">=5.0.0" },
-    { name = "openbb-equity", specifier = ">=2.0.0" },
-    { name = "openbb-yfinance", specifier = ">=2.1.0" },
+    { name = "openbb", marker = "extra == 'openbb'", specifier = ">=5.0.0" },
+    { name = "openbb-equity", marker = "extra == 'openbb'", specifier = ">=2.0.0" },
+    { name = "openbb-yfinance", marker = "extra == 'openbb'", specifier = ">=2.1.0" },
     { name = "pydantic", specifier = ">=2.14.3" },
     { name = "pydantic-settings", specifier = ">=2.16.2" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
 ]
+provides-extras = ["openbb"]
 
 [package.metadata.requires-dev]
 dev = [

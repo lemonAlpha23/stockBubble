@@ -28,13 +28,13 @@ uv run python scripts/check_vercel_entry.py   # 部署前本地自检
 ## 快速开始
 
 ```bash
-uv sync                     # 创建 .venv 并安装依赖（含 OpenBB，约 230 个包，首次稍慢）
+uv sync                     # 创建 .venv 并安装默认依赖（Yahoo 数据源，不含 OpenBB）
 uv run stockbubble check    # 校验 universe 配置与装配（不打网络）
 uv run stockbubble serve    # http://127.0.0.1:8000
 uv run stockbubble snapshot us_equity --window 7d --limit 8   # 命令行看快照
 ```
 
-> OpenBB 是重依赖：`import openbb` 首次约 15 秒，之后同一进程内复用。
+> OpenBB 是可选的重依赖，需要时运行 `uv sync --extra openbb` 安装，再设置 `BUBBLE_US_PROVIDER=openbb`。Vercel 使用默认依赖，不安装这个 extra。
 > 它只在美股报价主路径上起作用；把它关掉用 `BUBBLE_US_PROVIDER=yahoo`，
 > 启动就没有这段开销（服务启动本身不 import OpenBB，是第一个美股请求才加载）。
 

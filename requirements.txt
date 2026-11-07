@@ -1,4 +1,4 @@
-# Vercel 的 Python runtime 只认 requirements.txt（本地用 uv / pyproject.toml）。
+# 精简的服务端依赖清单；Vercel 也支持 pyproject.toml / uv.lock。
 # 只列服务端真正 import 的包；OpenBB 是可选路由，不在这里装。
 fastapi==0.162.0
 httpx==0.28.1

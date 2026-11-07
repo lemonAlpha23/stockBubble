@@ -10,13 +10,17 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.162.0",
     "httpx>=0.28.1",
-    "openbb>=5.0.0",
-    "openbb-equity>=2.0.0",
-    "openbb-yfinance>=2.1.0",
     "pydantic>=2.14.3",
     "pydantic-settings>=2.16.2",
     "pyyaml>=6.0.3",
     "uvicorn[standard]>=0.54.0",
+]
+
+[project.optional-dependencies]
+openbb = [
+    "openbb>=5.0.0",
+    "openbb-equity>=2.0.0",
+    "openbb-yfinance>=2.1.0",
 ]
 
 [project.scripts]
