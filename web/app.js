@@ -1673,7 +1673,7 @@
   let sparkPoints = [];
   function drawSparkline(points) {
     sparkPoints = points || [];
-    el.sparkline.selectAll('.spark-axis, .spark-hover, .spark-hit').remove();
+    el.sparkline.selectAll('.spark-axis, .spark-time-axis, .spark-hover, .spark-hit').remove();
     const line = el.sparkline.select('.spark-line');
     const area = el.sparkline.select('.spark-area');
     if (!points || points.length < 2) {
@@ -1681,7 +1681,8 @@
       area.attr('d', null);
       return;
     }
-    const height = 110;
+    const height = 134;
+    const plotBottom = 90;
     const width = Math.max(220, el.sparkline.node().getBoundingClientRect().width);
     el.sparkline.attr('viewBox', `0 0 ${width} ${height}`);
     const tickLabels = d3.extent(points, (point) => point.c).map((value) =>
@@ -1698,7 +1699,7 @@
       .scaleLinear()
       .domain([extent[0] - pad, extent[1] + pad])
       .nice(3)
-      .range([height - 20, 18]);
+      .range([plotBottom, 18]);
 
     const path = d3
       .line()
@@ -1710,7 +1711,7 @@
     const rising = last.c >= first.c;
     line.attr('d', path(points)).attr('stroke', rising ? '#3ddc97' : '#ff5f6d');
     area
-      .attr('d', `${path(points)} L ${xs(last.t)} ${height} L ${xs(first.t)} ${height} Z`)
+      .attr('d', `${path(points)} L ${xs(last.t)} ${plotBottom} L ${xs(first.t)} ${plotBottom} Z`)
       .attr('fill', rising ? 'rgba(61,220,151,0.16)' : 'rgba(255,95,109,0.16)');
 
     const priceFormat = (value) => value.toLocaleString('en-US', {
@@ -1726,9 +1727,25 @@
       axis.append('text').attr('x', width - 2).attr('text-anchor', 'end').attr('y', y)
         .attr('dy', '0.32em').text(priceFormat(value));
     }
+    const timeAxis = el.sparkline.append('g').attr('class', 'spark-time-axis');
+    const shortRange = last.t - first.t <= 24 * 60 * 60 * 1000;
+    const timePoints = Array.from({ length: 5 }, (_, index) => ({
+      t: first.t + (last.t - first.t) * index / 4
+    }));
+    timePoints.forEach((point, index) => {
+      const x = xs(point.t);
+      timeAxis.append('line').attr('x1', x).attr('x2', x)
+        .attr('y1', plotBottom + 2).attr('y2', plotBottom + 5);
+      const tick = timeAxis.append('text').attr('x', x).attr('y', plotBottom + 16)
+        .attr('text-anchor', index === 0 ? 'start' : index === timePoints.length - 1 ? 'end' : 'middle')
+        .text(new Date(point.t).toLocaleString('zh-CN', shortRange
+          ? { hour: '2-digit', minute: '2-digit', hour12: false }
+          : { month: '2-digit', day: '2-digit' }));
+      tick.append('title').text(new Date(point.t).toLocaleString('zh-CN', { hour12: false }));
+    });
     const hover = el.sparkline.append('g').attr('class', 'spark-hover')
       .attr('display', 'none').attr('pointer-events', 'none');
-    const guide = hover.append('line').attr('y1', 16).attr('y2', height - 18);
+    const guide = hover.append('line').attr('y1', 16).attr('y2', plotBottom);
     const dot = hover.append('circle').attr('r', 3);
     const label = hover.append('text').attr('y', 9);
     const date = hover.append('text').attr('y', height - 2);

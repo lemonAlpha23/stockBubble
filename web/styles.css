@@ -1009,7 +1009,7 @@ button {
 
 #sparkline {
   width: 100%;
-  height: 110px;
+  height: 134px;
   overflow: visible;
 }
 
@@ -1291,3 +1291,7 @@ button {
   .detail-swipe-handle span { width: 34px; height: 4px; border-radius: 3px; background: #485363; }
   .detail.is-swiping { transition: none; user-select: none; }
 }
+
+.spark-time-axis { pointer-events: none; font-family: var(--mono); font-size: 9px; }
+.spark-time-axis text { fill: #8390a0; }
+.spark-time-axis line { stroke: #485363; }
