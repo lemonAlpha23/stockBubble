@@ -166,6 +166,21 @@ async def test_health_reports_providers_and_universes(client: AsyncClient) -> No
     assert body["universes"] == 2
 
 
+async def test_config_and_health_share_deployment_revision(
+    universes: YamlUniverseRepository,
+    provider: FakeProvider,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("VERCEL_GIT_COMMIT_SHA", "1234567890abcdef")
+    monkeypatch.delenv("BUBBLE_BUILD_SHA", raising=False)
+    app = create_app(services=build_services(universes, provider))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        config = (await client.get("/api/config")).json()
+        health = (await client.get("/api/health")).json()
+    assert config["revision"] == health["revision"] == "1234567890abcdef"
+    assert config["version"] == health["version"]
+
+
 async def test_root_without_web_dir_returns_api_hint(client: AsyncClient) -> None:
     response = await client.get("/")
     assert response.status_code == 200

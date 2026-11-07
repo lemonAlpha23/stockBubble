@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from os import getenv
 
 from fastapi import APIRouter, Query
 
@@ -34,11 +35,14 @@ class UiSettings:
 
 def build_router(services: AppServices, ui: UiSettings) -> APIRouter:
     router = APIRouter(prefix="/api")
+    revision = getenv("BUBBLE_BUILD_SHA") or getenv("VERCEL_GIT_COMMIT_SHA") or None
 
     @router.get("/config", response_model=ConfigDTO, summary="UI bootstrap config")
     async def get_config() -> ConfigDTO:
         return ConfigDTO(
             title=ui.title,
+            version=__version__,
+            revision=revision,
             windows=[WindowOption(value=w.value, label=w.label) for w in ChangeWindow],
             size_bases=[SizeBasisOption(value=b.value, label=b.label) for b in SizeBasis],
             auto_refresh_seconds=ui.auto_refresh_seconds,
@@ -85,6 +89,7 @@ def build_router(services: AppServices, ui: UiSettings) -> APIRouter:
         return HealthDTO(
             status="ok",
             version=__version__,
+            revision=revision,
             providers=[
                 ProviderHealthDTO(
                     id=provider.provider_id,

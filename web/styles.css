@@ -764,6 +764,12 @@ button {
   flex: 1;
 }
 
+.status-version {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
 .warnings {
   color: #e6b95c;
   font-size: 11px;

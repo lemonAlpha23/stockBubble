@@ -52,8 +52,21 @@ uv run uvicorn stockbubble.api.asgi:app --reload --port 8077
 uv run ruff check src tests && uv run ruff format --check src tests
 uv run mypy                  # src + tests，42 个文件
 uv run lint-imports          # 分层契约，见 .importlinter
-uv run pytest                # 146 个用例，全部离线
+uv run pytest                # 后端测试，全部离线
 ```
+
+浏览器回归检查使用模拟行情，不请求外部数据源：
+
+```bash
+uv run --with playwright playwright install chromium  # 首次安装测试浏览器
+uv run --script scripts/check_frontend.py
+```
+
+覆盖手机气泡稳定后暂停/拖动恢复、背景不可拖动、走势图缓存过期与请求切换、筛选栏动画和版本显示。
+走势图在浏览器中缓存 60 秒，最多保留 64 组；网络请求默认 20 秒超时，切换筛选或走势时取消旧请求。
+
+页面底部及 `/api/health`、`/api/config` 显示应用版本和部署提交。Vercel Git 部署使用
+`VERCEL_GIT_COMMIT_SHA`；其他部署方式可设置 `BUBBLE_BUILD_SHA`，未提供时只显示应用版本。
 
 ## 架构
 
@@ -401,7 +414,7 @@ sectors:
 - **点击与拖动的区分**：拖动起点到松手点位移 `< 5px` 视为点击（打开详情）。
 - **复位**：顶栏网格按钮清 `layoutKey` → 重建世界、回到布局位置；换窗口/口径/分组/尺寸/数量
   也会重排，60s 自动刷新则保留你摆好的位置。
-- **暂停与无障碍**：`document.hidden` 停 rAF；`prefers-reduced-motion` 时关掉游动（弹簧照旧回位）。
+- **暂停与无障碍**：`document.hidden` 停 rAF；手机、触摸设备和 `prefers-reduced-motion` 环境关闭持续游动，气泡稳定后暂停物理计算；无人交互时最多计算 3 秒，避免密集布局持续微调。拖动或更新布局时恢复，桌面保留游动效果。
 - **可调常量**：`SPRING_K`、`SPRING_C`、`WANDER_*`、`THROW_*`、`WALL_PADDING`，
   以及 `stepSim()` 里的 `world.step(dt, 速度迭代, 位置迭代)`，全在 `web/app.js` 的
   `/* physics */` 常量区。

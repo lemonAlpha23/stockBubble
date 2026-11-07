@@ -16,6 +16,8 @@ from stockbubble.domain.models import Snapshot, Universe
 
 class ConfigDTO(BaseModel):
     title: str
+    version: str = ""
+    revision: str | None = None
     windows: list[WindowOption]
     size_bases: list[SizeBasisOption]
     auto_refresh_seconds: int
@@ -143,7 +145,7 @@ class SnapshotDTO(BaseModel):
                     quality=node.quality.value,
                     source=node.source,
                     logo=node.logo_url,
-            logo_fallback=node.logo_fallback,
+                    logo_fallback=node.logo_fallback,
                 )
                 for node in snapshot.nodes
             ],
@@ -193,6 +195,7 @@ class SeriesDTO(BaseModel):
 class HealthDTO(BaseModel):
     status: str
     version: str
+    revision: str | None = None
     providers: list[ProviderHealthDTO]
     universes: int
 

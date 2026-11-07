@@ -52,6 +52,11 @@
   const DEFAULT_LIMIT = 100;
   // 气泡口径默认「24h 成交额」：成交额比市值更快反映当下资金在关注谁
   const DEFAULT_SIZE = 'volume';
+  const HISTORY_TTL_MS = 60_000;
+  const HISTORY_CACHE_LIMIT = 64;
+  let snapshotRequest = null;
+  let historyRequest = null;
+  let historyToken = 0;
 
   const state = {
     config: null,
@@ -200,24 +205,40 @@
     };
   })();
 
-  async function fetchJSON(url) {
-    const response = await fetch(url, { headers: { Accept: 'application/json' } });
-    const text = await response.text();
-    let payload = null;
-    if (text) {
-      try {
-        payload = JSON.parse(text);
-      } catch {
-        payload = null;
+  async function fetchJSON(url, { signal, timeout = 20_000 } = {}) {
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    if (signal?.aborted) abort();
+    signal?.addEventListener('abort', abort, { once: true });
+    let timedOut = false;
+    const timer = window.setTimeout(() => { timedOut = true; controller.abort(); }, timeout);
+    try {
+      const response = await fetch(url, {
+        headers: { Accept: 'application/json' }, signal: controller.signal,
+      });
+      const text = await response.text();
+      let payload = null;
+      if (text) {
+        try {
+          payload = JSON.parse(text);
+        } catch {
+          payload = null;
+        }
       }
+      if (!response.ok) {
+        const error = payload && payload.error ? payload.error : {};
+        const detail = error.message || `${response.status} ${response.statusText}`;
+        throw new Error(error.hint ? `${detail}（${error.hint}）` : detail);
+      }
+      if (payload === null) throw new Error('响应不是合法的 JSON');
+      return payload;
+    } catch (error) {
+      if (timedOut) throw new Error('请求超时，请稍后重试');
+      throw error;
+    } finally {
+      window.clearTimeout(timer);
+      signal?.removeEventListener('abort', abort);
     }
-    if (!response.ok) {
-      const error = payload && payload.error ? payload.error : {};
-      const detail = error.message || `${response.status} ${response.statusText}`;
-      throw new Error(error.hint ? `${detail}（${error.hint}）` : detail);
-    }
-    if (payload === null) throw new Error('响应不是合法的 JSON');
-    return payload;
   }
 
   /* -------------------------------------------------------------- controls */
@@ -321,6 +342,8 @@
   async function loadSnapshot() {
     if (!state.universe) return;
     const token = ++state.requestToken;
+    snapshotRequest?.abort();
+    snapshotRequest = new AbortController();
     state.loading = true;
     el.refresh.classList.add('spinning');
     if (!state.snapshot) {
@@ -328,7 +351,7 @@
       el.loadingText.textContent = '正在加载行情…';
     }
     try {
-      const snapshot = await fetchJSON(bubbleURL());
+      const snapshot = await fetchJSON(bubbleURL(), { signal: snapshotRequest.signal });
       if (token !== state.requestToken) return;
       state.snapshot = snapshot;
       el.empty.hidden = true;
@@ -338,7 +361,7 @@
       state.remaining = Number(state.config.auto_refresh_seconds) || 60;
       if (state.selected) selectSymbol(state.selected, { keepDetail: true });
     } catch (error) {
-      if (token !== state.requestToken) return;
+      if (token !== state.requestToken || error.name === 'AbortError') return;
       el.loading.hidden = true;
       toast(`加载失败：${error.message}`);
       if (!state.snapshot) {
@@ -519,7 +542,9 @@
     layoutKey: '',
     width: 0,
     height: 0,
-    float: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    float: !prefersReducedMotion && !window.matchMedia('(pointer: coarse), (max-width: 860px)').matches,
+    idleMs: 0,
+    activeMs: 0,
     world: null,
     ready: false,
     lastX: 0,
@@ -871,10 +896,27 @@
       steps += 1;
     }
     if (steps >= MAX_STEPS) sim.acc = 0;
+    if (!sim.float && !sim.dragging && steps > 0) {
+      sim.activeMs += elapsed;
+      let moving = false;
+      for (const entry of sim.nodes) {
+        const p = entry.body.getPosition();
+        if (entry.restX === undefined || Math.hypot(p.x - entry.restX, p.y - entry.restY) > 0.08) {
+          moving = true;
+        }
+        entry.restX = p.x;
+        entry.restY = p.y;
+      }
+      sim.idleMs = moving ? 0 : sim.idleMs + elapsed;
+      // 密集布局中弹簧和碰撞可能持续微调，限制无人交互时的计算时长。
+      if (sim.idleMs >= 600 || sim.activeMs >= 3000) stopSim();
+    }
   }
 
   function startSim() {
-    if (sim.raf || !sim.world) return;
+    sim.idleMs = 0;
+    sim.activeMs = 0;
+    if (sim.raf || !sim.world || document.hidden) return;
     sim.last = 0;
     sim.acc = 0;
     sim.raf = window.requestAnimationFrame(runSim);
@@ -1483,7 +1525,7 @@
       ? '—'
       : `${windowChange > 0 ? '+' : ''}${windowChange.toFixed(2)}%`;
     el.detailChange.className = `detail-change ${toneOf(windowChange)}`;
-    const basisText = state.sizeBasis === 'volume' ? '24h 成交额' : '市值';
+    const basisText = state.size === 'volume' ? '24h 成交额' : '市值';
     el.detailFoot.textContent = `${windowLabelOf(state.window)} · ${basisText}口径 · 更新于 ${fmtClock(state.snapshot.generated_at)}`;
 
     const allowedWindows = (currentUniverse()?.windows || []).slice();
@@ -1533,6 +1575,8 @@
   }
 
   function closeDetail() {
+    historyToken += 1;
+    historyRequest?.abort();
     state.selected = null;
     el.detail.hidden = true;
     el.stage.classList.remove('has-detail');
@@ -1542,23 +1586,38 @@
   }
 
   async function loadHistory(symbol, quiet) {
+    const token = ++historyToken;
+    historyRequest?.abort();
+    historyRequest = new AbortController();
     const universe = state.universe;
     const timeframe = state.timeframe;
     const key = `${universe}:${symbol}:${timeframe}`;
-    let series = state.historyCache.get(key);
+    const current = () => token === historyToken && state.universe === universe
+      && state.selected === symbol && state.timeframe === timeframe;
+    const cached = state.historyCache.get(key);
+    let series = cached && Date.now() - cached.storedAt < HISTORY_TTL_MS ? cached.series : null;
     if (!series) {
-      if (!quiet) el.sparkMeta.textContent = '加载走势…';
+      if (!quiet) {
+        el.sparkMeta.textContent = '加载走势…';
+        drawSparkline([]);
+      }
       try {
         const params = new URLSearchParams({ universe, symbol, timeframe });
-        series = await fetchJSON(`${API.history}?${params.toString()}`);
-        state.historyCache.set(key, series);
+        series = await fetchJSON(`${API.history}?${params.toString()}`, { signal: historyRequest.signal });
+        if (!current()) return;
+        state.historyCache.delete(key);
+        state.historyCache.set(key, { series, storedAt: Date.now() });
+        while (state.historyCache.size > HISTORY_CACHE_LIMIT) {
+          state.historyCache.delete(state.historyCache.keys().next().value);
+        }
       } catch (error) {
+        if (!current() || error.name === 'AbortError') return;
         el.sparkMeta.textContent = `走势不可用：${error.message}`;
         drawSparkline([]);
         return;
       }
     }
-    if (state.selected !== symbol || state.timeframe !== timeframe) return;
+    if (!current()) return;
     drawSparkline(series.points || []);
     const points = series.points || [];
     if (points.length >= 2) {
@@ -1984,6 +2043,9 @@
 
     el.search.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter') return;
+      window.clearTimeout(searchTimer);
+      state.query = el.search.value.trim();
+      applySearchHighlight();
       const match = firstMatch();
       if (match) {
         selectSymbol(match.symbol);
@@ -2016,11 +2078,11 @@
       void loadHistory(state.selected, false);
     });
 
-    let resizeFrame = 0;
+    let resizeTimer = 0;
     const resize = new ResizeObserver(() => {
       if (!state.snapshot) return;
-      window.cancelAnimationFrame(resizeFrame);
-      resizeFrame = window.requestAnimationFrame(() => render());
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => render(), 120);
     });
     resize.observe(el.stage);
 
@@ -2043,6 +2105,10 @@
         fetchJSON(API.universes),
       ]);
       state.config = config;
+      const versionLabel = $('status-version');
+      versionLabel.textContent = config.version
+        ? `v${config.version}${config.revision ? ` · ${config.revision.slice(0, 7)}` : ''}` : '';
+      versionLabel.title = config.revision ? `部署提交：${config.revision}` : '未提供部署提交信息';
       state.universes = universes;
       document.title = `${config.title} · 资产气泡图`;
       if (!state.universe) state.universe = universes[0] ? universes[0].id : null;
