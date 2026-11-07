@@ -1709,12 +1709,8 @@
     zoomBehaviour = d3
       .zoom()
       .scaleExtent([1, 12])
-      .filter((event) => {
-        if (event.type === 'wheel') return true;
-        // 在气泡上按下是“拖动气泡”，空白处按下才是“平移画布”
-        if (event.target.closest && event.target.closest('g.bubble')) return false;
-        return event.type === 'mousedown' || event.type === 'touchstart';
-      })
+      // 画布只接受滚轮缩放；鼠标和触摸拖动仅由气泡自身处理。
+      .filter((event) => event.type === 'wheel')
       .on('zoom', (event) => {
         lastZoom = event.transform;
         root.attr('transform', event.transform);
