@@ -1088,6 +1088,13 @@ button {
     background: var(--panel-solid);
     color: var(--text-dim);
     font-size: 12px;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  }
+
+  .controls-toggle[aria-expanded='true'] {
+    background: rgba(124, 156, 255, 0.14);
+    border-color: rgba(124, 156, 255, 0.4);
+    color: var(--text);
   }
 
   .controls:not(.is-expanded) {

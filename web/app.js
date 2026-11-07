@@ -1868,10 +1868,45 @@
 
   function wireEvents() {
     const controlsToggle = $('controls-toggle');
+    const controls = $('view-controls');
+    let controlsAnimation = null;
+    const collapsedControls = {
+      height: '0px', minHeight: '0px', paddingTop: '0px', paddingBottom: '0px',
+      borderBottomWidth: '0px', opacity: '0',
+    };
+    const controlsFrame = () => {
+      const style = window.getComputedStyle(controls);
+      return Object.fromEntries(Object.keys(collapsedControls).map((key) => [
+        key, key === 'height' ? `${controls.getBoundingClientRect().height}px` : style[key],
+      ]));
+    };
     controlsToggle.addEventListener('click', () => {
-      const expanded = $('view-controls').classList.toggle('is-expanded');
+      const expanded = controlsToggle.getAttribute('aria-expanded') !== 'true';
+      const from = controls.classList.contains('is-expanded') ? controlsFrame() : collapsedControls;
+      controlsAnimation?.cancel();
       controlsToggle.setAttribute('aria-expanded', String(expanded));
       controlsToggle.textContent = expanded ? '收起筛选' : '筛选设置';
+      if (prefersReducedMotion) {
+        controls.classList.toggle('is-expanded', expanded);
+        controls.style.overflow = '';
+        return;
+      }
+      // 先测量自然高度，再在当前高度与目标之间过渡；快速连点也从当前帧继续。
+      controls.classList.add('is-expanded');
+      const to = expanded ? controlsFrame() : collapsedControls;
+      controls.style.overflow = 'hidden';
+      controlsAnimation = controls.animate([from, to], {
+        duration: 260,
+        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+        fill: 'both',
+      });
+      controlsAnimation.onfinish = () => {
+        controls.classList.toggle('is-expanded', expanded);
+        controlsAnimation.cancel();
+        controlsAnimation = null;
+        // 展开后恢复溢出，避免数量选择弹窗被裁切。
+        controls.style.overflow = '';
+      };
     });
     el.refresh.addEventListener('click', () => {
       state.historyCache.clear();
