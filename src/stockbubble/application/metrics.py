@@ -41,19 +41,19 @@ def build_nodes(
     basis: SizeBasis,
     limit: int | None = None,
 ) -> NodeBuild:
-    """Rank quotes by size, attach shares, and drop unusable rows.
+    """Select and rank by market cap; use the chosen basis only for bubble size.
 
-    ``skipped`` counts quotes without a usable size value; ``trimmed`` counts
+    ``skipped`` counts quotes without a usable market cap; ``trimmed`` counts
     quotes dropped purely because of ``limit``.
     """
     candidates: list[tuple[float, Quote]] = []
     skipped = 0
     for quote in quotes:
-        size = size_of(quote, basis)
-        if size is None:
+        market_cap = size_of(quote, SizeBasis.MARKET_CAP)
+        if market_cap is None:
             skipped += 1
             continue
-        candidates.append((size, quote))
+        candidates.append((market_cap, quote))
 
     candidates.sort(key=lambda item: (-item[0], item[1].symbol))
     trimmed = 0
@@ -61,12 +61,13 @@ def build_nodes(
         trimmed = len(candidates) - limit
         candidates = candidates[:limit]
 
-    total = sum(size for size, _ in candidates)
+    sizes = [(size_of(quote, basis), quote) for _, quote in candidates]
+    total = sum(size or 0.0 for size, _ in sizes)
     nodes: list[BubbleNode] = []
-    for rank, (size, quote) in enumerate(candidates, start=1):
+    for rank, (size, quote) in enumerate(sizes, start=1):
         change = quote.change(window)
         quality = quote.quality
-        if quality is DataQuality.OK and change is None:
+        if quality is DataQuality.OK and (change is None or size is None):
             quality = DataQuality.PARTIAL
         nodes.append(
             BubbleNode(
@@ -78,13 +79,13 @@ def build_nodes(
                 currency=quote.currency,
                 change_pct=change,
                 changes=dict(quote.changes),
-                size_value=size,
-                share=(size / total) if total > 0 else 0.0,
+                size_value=size or 0.0,
+                share=((size or 0.0) / total) if total > 0 else 0.0,
                 rank=rank,
                 quality=quality,
                 source=quote.source,
                 logo_url=quote.logo_url,
-        logo_fallback=quote.logo_fallback,
+                logo_fallback=quote.logo_fallback,
             )
         )
     return NodeBuild(

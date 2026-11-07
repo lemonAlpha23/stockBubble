@@ -47,11 +47,11 @@ async def test_snapshot_uses_universe_defaults(universe: Universe) -> None:
     assert snapshot.universe_name == "测试美股"
     assert snapshot.asset_class is AssetClass.US_EQUITY
     assert snapshot.window is ChangeWindow.H24
-    # 默认口径是 24h 成交额（volume），所以 BBB 排在前面
+    # 默认尺寸口径是成交额，但入选和排名始终按市值。
     assert snapshot.size_basis is SizeBasis.VOLUME
     assert snapshot.currency == "USD"
     assert snapshot.generated_at == FIXED_NOW
-    assert [node.symbol for node in snapshot.nodes] == ["BBB", "AAA"]
+    assert [node.symbol for node in snapshot.nodes] == ["AAA", "BBB"]
     assert snapshot.stats.provider_quotes == 2
     assert snapshot.stats.returned == 2
     assert snapshot.stats.coverage == 1.0
@@ -88,7 +88,7 @@ async def test_limit_is_capped_by_universe_and_service(universe: Universe) -> No
     assert capped_by_service.nodes[0].symbol == "D"
 
 
-async def test_volume_basis_changes_ordering(universe: Universe) -> None:
+async def test_volume_basis_preserves_market_cap_ordering(universe: Universe) -> None:
     provider = FakeProvider(
         quotes=(
             make_quote("AAA", market_cap=900.0, volume=10.0),
@@ -98,8 +98,8 @@ async def test_volume_basis_changes_ordering(universe: Universe) -> None:
     snapshot = await build_service(universe, provider).snapshot(
         "equity", size_basis=SizeBasis.VOLUME
     )
-    assert [node.symbol for node in snapshot.nodes] == ["BBB", "AAA"]
-    assert snapshot.nodes[0].size_value == 90.0
+    assert [node.symbol for node in snapshot.nodes] == ["AAA", "BBB"]
+    assert snapshot.nodes[0].size_value == 10.0
 
 
 async def test_empty_feed_warns_with_no_data(universe: Universe) -> None:

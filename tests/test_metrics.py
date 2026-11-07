@@ -15,7 +15,7 @@ def test_size_of_picks_requested_basis() -> None:
     assert size_of(make_quote("AAA", volume=0.0), SizeBasis.VOLUME) is None
 
 
-def test_build_nodes_ranks_by_size_and_attaches_shares() -> None:
+def test_build_nodes_ranks_by_market_cap_and_attaches_shares() -> None:
     quotes = [
         make_quote("AAA", market_cap=100.0),
         make_quote("BBB", market_cap=300.0),
@@ -74,3 +74,33 @@ def test_build_nodes_without_quotes_is_empty() -> None:
     build = build_nodes([], window=ChangeWindow.D7, basis=SizeBasis.VOLUME)
     assert build.nodes == ()
     assert build.total_size == 0.0
+
+
+def test_volume_basis_selects_same_top_market_caps() -> None:
+    quotes = [
+        make_quote("AAA", market_cap=300.0, volume=10.0),
+        make_quote("BBB", market_cap=200.0, volume=20.0),
+        make_quote("CCC", market_cap=100.0, volume=900.0),
+        make_quote("DDD", market_cap=None, volume=1000.0),
+    ]
+    cap = build_nodes(quotes, window=ChangeWindow.H24, basis=SizeBasis.MARKET_CAP, limit=2)
+    volume = build_nodes(quotes, window=ChangeWindow.H24, basis=SizeBasis.VOLUME, limit=2)
+    assert [n.symbol for n in cap.nodes] == [n.symbol for n in volume.nodes] == ["AAA", "BBB"]
+    assert [n.rank for n in volume.nodes] == [1, 2]
+    assert [n.size_value for n in volume.nodes] == [10.0, 20.0]
+    assert volume.nodes[0].share == pytest.approx(1 / 3)
+    assert volume.total_size == 30.0
+    assert volume.skipped == 1
+    assert volume.trimmed == 1
+
+
+def test_missing_volume_does_not_replace_a_top_market_cap() -> None:
+    quotes = [
+        make_quote("AAA", market_cap=300.0, volume=None),
+        make_quote("BBB", market_cap=200.0, volume=20.0),
+    ]
+    build = build_nodes(quotes, window=ChangeWindow.H24, basis=SizeBasis.VOLUME, limit=1)
+    assert [n.symbol for n in build.nodes] == ["AAA"]
+    assert build.nodes[0].size_value == 0.0
+    assert build.nodes[0].quality is DataQuality.PARTIAL
+    assert build.nodes[0].share == 0.0

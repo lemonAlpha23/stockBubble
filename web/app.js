@@ -1426,7 +1426,7 @@
     ];
     el.tooltip.innerHTML = `
       <div class="tip-name">${escapeHTML(node.name || node.symbol)}</div>
-      <div class="tip-sub">${escapeHTML(sector)}${escapeHTML(node.symbol)} · 排名 ${node.rank}</div>
+      <div class="tip-sub">${escapeHTML(sector)}${escapeHTML(node.symbol)} · 市值排名 ${node.rank}</div>
       ${rows.join('')}`;
     el.tooltip.hidden = false;
     moveTooltip(event);
@@ -1522,7 +1522,7 @@
     hideTooltip();
     el.detailSymbol.textContent = node.symbol;
     el.detailName.textContent = node.name || node.symbol;
-    el.detailSector.textContent = `${node.sector || '未分类'} · 排名 ${node.rank}/${state.snapshot.stats.returned}`;
+    el.detailSector.textContent = `${node.sector || '未分类'} · 市值排名 ${node.rank}/${state.snapshot.stats.returned}`;
     el.detailPrice.textContent = fmtPrice(node.price);
     el.detailCurrency.textContent = node.currency;
     el.detailPrice.className = `detail-price ${toneOf(node.change_pct)}`;
