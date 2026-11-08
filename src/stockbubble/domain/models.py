@@ -21,10 +21,17 @@ class AssetClass(StrEnum):
 
     CRYPTO = "crypto"
     US_EQUITY = "us_equity"
+    HK_EQUITY = "hk_equity"
+    A_EQUITY = "a_equity"
 
     @property
     def label(self) -> str:
-        return {AssetClass.CRYPTO: "加密货币", AssetClass.US_EQUITY: "美股"}[self]
+        return {
+            AssetClass.CRYPTO: "加密货币",
+            AssetClass.US_EQUITY: "美股",
+            AssetClass.HK_EQUITY: "港股",
+            AssetClass.A_EQUITY: "A 股",
+        }[self]
 
 
 class ChangeWindow(StrEnum):

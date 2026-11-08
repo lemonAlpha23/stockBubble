@@ -1,5 +1,10 @@
 # Stock Bubble
 
+Windows 本地启动：双击项目根目录的 `start.bat`，服务就绪后会自动打开默认浏览器（优先使用 `http://127.0.0.1:8000`，端口占用时自动选择 8001–8010）。保持启动窗口开启，按 `Ctrl+C` 停止服务。优先使用 `uv` 自动准备依赖，也可使用已有的 `.venv` 环境。
+
+现已支持港股和沪深 A 股：顶部市场栏可切换「港股 · 主要股票」（200 只，HKD）和「A 股 · 主要股票」（200 只，CNY），支持涨跌窗口、行业分组、市值／成交额和详情走势图。
+成分股分别维护在 `config/universes/hk_equity.yaml` 和 `config/universes/a_equity.yaml`，是可编辑的静态股票池，并非全市场。Yahoo 行情代码使用 `.HK`（香港）、`.SS`（上海）、`.SZ`（深圳）后缀，无需新增 API key；行情可用性和延迟取决于 Yahoo。股票的 24h 涨跌为最近交易日涨跌，成交额为成交量乘以最新价的估算值，7d／30d 按 5／21 个交易日计算。
+
 **在线体验：[Stock Bubble 网页版](https://stock-bubble-kappa.vercel.app/?universe=crypto&window=24h)**（默认展示加密货币的 24 小时涨跌幅）
 
 一个仿 [cryptobubbles.net](https://cryptobubbles.net/zh) 的**多资产类别**气泡图行情看板：气泡面积默认代表 **24h 成交额**（也可切回市值），颜色代表涨跌幅，支持加密货币与美股，并且可以按行业分组、缩放、拖动气泡、点开单只标的看走势 。

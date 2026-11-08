@@ -57,6 +57,70 @@ def build_provider(**kwargs: object) -> YahooProvider:
     return YahooProvider(**defaults)  # type: ignore[arg-type]
 
 
+@pytest.mark.parametrize(
+    ("asset_class", "symbol", "currency", "name"),
+    [
+        (AssetClass.HK_EQUITY, "0700.HK", "HKD", "腾讯控股"),
+        (AssetClass.A_EQUITY, "600519.SS", "CNY", "贵州茅台"),
+        (AssetClass.A_EQUITY, "000858.SZ", "CNY", "五粮液"),
+    ],
+)
+@respx.mock
+async def test_regional_equity_quotes_and_history(
+    asset_class: AssetClass, symbol: str, currency: str, name: str
+) -> None:
+    universe = Universe(
+        id=asset_class.value,
+        name=name,
+        asset_class=asset_class,
+        provider=f"yahoo_{asset_class.value}",
+        currency=currency,
+        default_window=ChangeWindow.H24,
+        supported_windows=(ChangeWindow.H24, ChangeWindow.D7, ChangeWindow.D30),
+        instruments=(Instrument(symbol=symbol, name=name, sector="金融"),),
+    )
+    mock_crumb()
+    row = {**quote_row(symbol), "currency": currency}
+    route = respx.get(QUOTES).mock(
+        return_value=httpx.Response(200, json={"quoteResponse": {"result": [row]}})
+    )
+    respx.get(SPARK).mock(
+        return_value=httpx.Response(200, json={symbol: {"close": close_series()}})
+    )
+    respx.get(f"{BASE}/v8/finance/chart/{symbol}").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "chart": {
+                    "result": [
+                        {"timestamp": [MARKET_TIME], "indicators": {"quote": [{"close": [100.0]}]}}
+                    ]
+                }
+            },
+        )
+    )
+    provider = YahooProvider(
+        asset_class=asset_class, provider_id=universe.provider, now=lambda: NOW
+    )
+    try:
+        result = await provider.fetch_quotes(universe)
+        quote = result.quotes[0]
+        assert quote.asset_class is asset_class
+        assert quote.name == name
+        assert quote.currency == currency
+        assert quote.external_id == symbol
+        assert quote.source == universe.provider
+        assert quote.market_cap == 5000.0
+        assert quote.change(ChangeWindow.D30) is not None
+        assert route.calls[0].request.url.params["symbols"] == symbol
+        points = await provider.fetch_series(
+            external_id=quote.external_id, timeframe=Timeframe.D1, currency=currency
+        )
+        assert points[0].c == 100.0
+    finally:
+        await provider.aclose()
+
+
 @respx.mock
 async def test_quotes_combine_quote_and_spark(universe: Universe) -> None:
     mock_crumb()

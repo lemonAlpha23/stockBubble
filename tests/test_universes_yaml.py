@@ -8,6 +8,21 @@ from stockbubble.adapters.universes import YamlUniverseRepository
 from stockbubble.domain.errors import UniverseConfigError, UniverseNotFound
 from stockbubble.domain.models import Universe
 
+
+def test_bundled_markets_have_labels_and_can_be_serialized() -> None:
+    from stockbubble.api.schemas import UniverseDTO
+    from stockbubble.config import Settings
+
+    repo = YamlUniverseRepository.from_directory(Settings().universes_dir)
+    for key, currency, count in [("hk_equity", "HKD", 200), ("a_equity", "CNY", 200)]:
+        universe = repo.get(key)
+        assert universe.asset_class.label
+        assert universe.currency == currency
+        assert len(universe.instruments) == count
+        assert len(set(universe.symbols())) == count
+        assert universe.limit == count
+        assert UniverseDTO.from_domain(universe).currency == currency
+
 SINGLE = """
 id: hk_equity
 name: 港股 · 龙头

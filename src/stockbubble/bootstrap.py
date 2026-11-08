@@ -28,7 +28,7 @@ from stockbubble.application.registry import ProviderRegistry
 from stockbubble.application.services import AppServices
 from stockbubble.config import Settings
 from stockbubble.domain.errors import ProviderUnavailable, UniverseConfigError
-from stockbubble.domain.models import BubbleNode, ProviderWarning, Universe
+from stockbubble.domain.models import AssetClass, BubbleNode, ProviderWarning, Universe
 from stockbubble.domain.ports import MarketDataProvider, QuoteCache
 
 logger = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ def build_providers(settings: Settings) -> ProviderRegistry:
             registry.register(
                 OpenBBProvider(
                     series=yahoo,
-            logos=StockLogos(),
+                    logos=StockLogos(),
                     quote_provider=settings.openbb_quote_provider,
                     chunk_size=settings.openbb_chunk_size,
                     concurrency=settings.openbb_concurrency,
@@ -90,6 +90,16 @@ def build_providers(settings: Settings) -> ProviderRegistry:
             registry.register(yahoo)
     else:
         registry.register(yahoo)
+    for asset_class in (AssetClass.HK_EQUITY, AssetClass.A_EQUITY):
+        registry.register(
+            YahooProvider(
+                provider_id=f"yahoo_{asset_class.value}",
+                asset_class=asset_class,
+                base_url=settings.yahoo_base_url,
+                timeout=settings.http_timeout_seconds,
+                retries=settings.http_retries,
+            )
+        )
     return registry
 
 

@@ -2298,7 +2298,7 @@
       versionLabel.title = config.revision ? `部署提交：${config.revision}` : '未提供部署提交信息';
       state.universes = universes;
       document.title = `${config.title} · 资产气泡图`;
-      if (!state.universe) state.universe = universes[0] ? universes[0].id : null;
+      if (!state.universe) state.universe = universes.find((u) => u.id === 'crypto')?.id || universes[0]?.id || null;
       restoreFromURL();
       if (!state.universe) throw new Error('没有可用的资产类别');
       const meta = currentUniverse();

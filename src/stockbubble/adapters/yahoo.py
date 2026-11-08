@@ -75,6 +75,8 @@ class YahooProvider:
         self,
         *,
         base_url: str = DEFAULT_BASE_URL,
+        asset_class: AssetClass = AssetClass.US_EQUITY,
+        provider_id: str = "yahoo",
         timeout: float = 12.0,
         retries: int = 2,
         batch_size: int = 50,
@@ -82,6 +84,8 @@ class YahooProvider:
         clock: Any = None,
         now: Callable[[], datetime] | None = None,
     ) -> None:
+        self.asset_class = asset_class
+        self.provider_id = provider_id
         self._logos = logos
         self._client = JsonHttpClient(
             base_url,
@@ -108,7 +112,7 @@ class YahooProvider:
         return self._now_fn()
 
     async def fetch_quotes(self, universe: Universe) -> ProviderResult:
-        if universe.asset_class is not AssetClass.US_EQUITY:
+        if universe.asset_class is not self.asset_class:
             msg = f"yahoo cannot serve asset_class {universe.asset_class.value!r}"
             raise UniverseConfigError(msg)
         symbols = list(universe.symbols())
@@ -340,12 +344,14 @@ class YahooProvider:
 
         fallback_name = universe.name_of(symbol) or symbol
         name = str(row.get("shortName") or row.get("longName") or fallback_name)
+        if self.asset_class is not AssetClass.US_EQUITY:
+            name = fallback_name
         logo_url, logo_fallback = self._logos.urls(symbol) if self._logos else (None, None)
 
         return Quote(
             symbol=symbol,
             name=name,
-            asset_class=AssetClass.US_EQUITY,
+            asset_class=universe.asset_class,
             price=price,
             currency=str(row.get("currency") or universe.currency),
             changes=changes,

@@ -44,7 +44,7 @@ def create_app(
     app = FastAPI(
         title=settings.title,
         version=__version__,
-        description="Bubble chart market dashboard: crypto + US equities.",
+        description="Bubble chart market dashboard: crypto, US, Hong Kong and A-share equities.",
         docs_url="/api/docs",
         openapi_url="/api/openapi.json",
         redoc_url=None,
