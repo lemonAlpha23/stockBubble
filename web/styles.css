@@ -120,6 +120,9 @@ button {
   align-items: center;
   gap: 20px;
   overflow-x: auto;
+  overflow-y: hidden;
+  touch-action: pan-x;
+  overscroll-behavior: contain;
   scrollbar-width: none;
 }
 
