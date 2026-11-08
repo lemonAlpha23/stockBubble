@@ -754,6 +754,7 @@ button {
 .statusbar {
   grid-row: 4;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 14px;
   padding: 7px 20px;
@@ -765,6 +766,17 @@ button {
 
 .statusbar .spacer {
   flex: 1;
+}
+
+.status-breadth {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.status-breadth span {
+  white-space: nowrap;
 }
 
 .status-version {

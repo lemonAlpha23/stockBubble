@@ -105,6 +105,7 @@
     empty: $('empty'),
     tooltip: $('tooltip'),
     statusMeta: $('status-meta'),
+    statusBreadth: $('status-breadth'),
     statusWarnings: $('status-warnings'),
     statusUpdated: $('status-updated'),
     detail: $('detail'),
@@ -1819,6 +1820,25 @@
         ? `（请求 ${requested}，上游可用 ${stats.returned}）`
         : '';
     el.statusMeta.textContent = `${snapshot.universe.name} · ${windowLabelOf(snapshot.window)} · 气泡 ${stats.returned} 个 · 上游 ${stats.provider_quotes} 条 · 覆盖率 ${Math.round(stats.coverage * 100)}%${shortfall}`;
+    const counts = { up: 0, down: 0, flat: 0, missing: 0 };
+    const nodes = snapshot.nodes || [];
+    for (const node of nodes) {
+      const change = node.change_pct;
+      if (!Number.isFinite(change)) counts.missing += 1;
+      else if (change > 0) counts.up += 1;
+      else if (change < 0) counts.down += 1;
+      else counts.flat += 1;
+    }
+    const categories = [['up', '上涨'], ['down', '下跌'], ['flat', '平盘']];
+    if (counts.missing) categories.push(['missing', '暂无涨跌数据']);
+    el.statusBreadth.replaceChildren(...categories.map(([key, label]) => {
+      const item = document.createElement('span');
+      item.className = key;
+      const percent = nodes.length ? (counts[key] / nodes.length * 100).toFixed(1) : '0.0';
+      item.textContent = `${label} ${counts[key]}（${percent}%）`;
+      return item;
+    }));
+    el.statusBreadth.title = `按当前页面 ${nodes.length} 个标的等权计数 · ${windowLabelOf(snapshot.window)}涨跌幅`;
     const warnings = snapshot.warnings || [];
     el.statusWarnings.textContent = warnings.length
       ? warnings.map((warning) => warningText(warning)).join(' · ')
