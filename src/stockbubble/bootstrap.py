@@ -95,6 +95,7 @@ def build_providers(settings: Settings) -> ProviderRegistry:
             YahooProvider(
                 provider_id=f"yahoo_{asset_class.value}",
                 asset_class=asset_class,
+                logos=StockLogos(),
                 base_url=settings.yahoo_base_url,
                 timeout=settings.http_timeout_seconds,
                 retries=settings.http_retries,

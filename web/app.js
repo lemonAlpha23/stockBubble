@@ -191,7 +191,9 @@
   /** Largest font size that keeps ``text`` inside a circle of ``radius``. */
   const fitFont = (text, radius, fill = 0.86) => {
     const usable = radius * 2 * fill;
-    return usable / Math.max(String(text).length * 0.62, 1);
+    const units = Array.from(String(text)).reduce((sum, char) =>
+      sum + (/[^\x00-\x7f]/.test(char) ? 1 : 0.62), 0);
+    return usable / Math.max(units, 1);
   };
 
   /* ---------------------------------------------------------------- helpers */
@@ -1314,6 +1316,8 @@
       .attr('stroke-width', (node) => Math.max(1.8, Math.min(4, node.r * 0.045)));
 
     const labels = new Map();
+    const bubbleLabel = (node) => ['hk_equity', 'a_equity'].includes(node.data.asset_class)
+      ? (node.data.name || node.data.symbol) : node.data.symbol;
     for (const node of leaves) {
       const r = Math.max(node.r, 1.4);
       const changeText = fmtPct(node.data.change_pct);
@@ -1322,7 +1326,7 @@
       const logoSize = hasLogo ? Math.min(56, r * 0.58) : 0;
       const symbolFont = Math.max(
         8,
-        Math.min(34, r * 0.36, fitFont(node.data.symbol, r, hasLogo ? 0.94 : 0.96)),
+        Math.min(34, r * 0.36, fitFont(bubbleLabel(node), r, hasLogo ? 0.86 : 0.9)),
       );
       const changeFont = Math.max(8, Math.min(15, r * 0.22, fitFont(changeText, r, 0.92)));
       const showSymbol = r >= 10;
@@ -1370,7 +1374,7 @@
       .attr('y', (node) => labels.get(node.data.symbol).symbolY)
       .attr('font-size', (node) => labels.get(node.data.symbol).symbolFont)
       .style('display', (node) => (labels.get(node.data.symbol).showSymbol ? null : 'none'))
-      .text((node) => node.data.symbol);
+      .text(bubbleLabel);
 
     bubbleSel
       .select('text.change')
@@ -1718,6 +1722,19 @@
     const first = points[0];
     const rising = last.c >= first.c;
     line.attr('d', path(points)).attr('stroke', rising ? '#3ddc97' : '#ff5f6d');
+    const curve = line.node();
+    const curveLength = curve.getTotalLength();
+    // Follow the rendered monotone curve, including positions between samples.
+    const positionAtX = (x) => {
+      let low = 0;
+      let high = curveLength;
+      for (let i = 0; i < 24; i += 1) {
+        const middle = (low + high) / 2;
+        if (curve.getPointAtLength(middle).x < x) low = middle;
+        else high = middle;
+      }
+      return curve.getPointAtLength((low + high) / 2);
+    };
     area
       .attr('d', `${path(points)} L ${xs(last.t)} ${plotBottom} L ${xs(first.t)} ${plotBottom} Z`)
       .attr('fill', rising ? 'rgba(61,220,151,0.16)' : 'rgba(255,95,109,0.16)');
@@ -1756,18 +1773,21 @@
       .attr('width', plotRight).attr('height', height).attr('fill', 'transparent')
       .on('pointermove pointerdown', (event) => {
         const [x] = d3.pointer(event, el.sparkline.node());
-        const index = d3.bisector((point) => point.t).center(points, xs.invert(x));
-        const point = points[index];
-        const px = xs(point.t);
+        const px = Math.max(xs(first.t), Math.min(xs(last.t), x));
+        const position = positionAtX(px);
+        const time = xs.invert(px);
+        const price = ys.invert(position.y);
+        const nearest = points[d3.bisector((point) => point.t).center(points, time)];
+        const isSample = Math.abs(xs(nearest.t) - px) < 0.01;
         hover.attr('display', null);
         guide.attr('x1', px).attr('x2', px);
-        dot.attr('cx', px).attr('cy', ys(point.c));
+        dot.attr('cx', px).attr('cy', position.y);
         const anchor = px > plotRight / 2 ? 'end' : 'start';
         const labelX = Math.max(4, Math.min(plotRight - 4, px));
         label.attr('x', labelX).attr('text-anchor', anchor)
-          .text(priceFormat(point.c));
+          .text(`${isSample ? '' : '≈ '}${priceFormat(isSample ? nearest.c : price)}`);
         date.attr('x', labelX).attr('text-anchor', anchor)
-          .text(new Date(point.t).toLocaleString('zh-CN', {
+          .text(new Date(time).toLocaleString('zh-CN', {
             month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
             hour12: false
           }));
@@ -2296,7 +2316,12 @@
       versionLabel.textContent = config.version
         ? `v${config.version}${config.revision ? ` · ${config.revision.slice(0, 7)}` : ''}` : '';
       versionLabel.title = config.revision ? `部署提交：${config.revision}` : '未提供部署提交信息';
-      state.universes = universes;
+      const marketOrder = ['crypto', 'us_equity', 'hk_equity', 'a_equity'];
+      const marketPriority = (universe) => {
+        const index = marketOrder.indexOf(universe.id);
+        return index < 0 ? marketOrder.length : index;
+      };
+      state.universes = [...universes].sort((a, b) => marketPriority(a) - marketPriority(b));
       document.title = `${config.title} · 资产气泡图`;
       if (!state.universe) state.universe = universes.find((u) => u.id === 'crypto')?.id || universes[0]?.id || null;
       restoreFromURL();

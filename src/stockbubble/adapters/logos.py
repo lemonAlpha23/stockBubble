@@ -1,4 +1,7 @@
-"""Company logos for US equities.
+"""Company logos for US, Hong Kong and mainland China equities.
+
+Regional listings use Financial Modeling Prep with parqet as a fallback.
+Coverage varies by listing; the UI keeps the company name when images fail.
 
 Two key-free PNG endpoints, union coverage verified against the 258-symbol
 universe (2026-11): parqet covers 256, companiesmarketcap covers 256, and the
@@ -60,6 +63,11 @@ class StockLogos:
         ticker = symbol.strip().upper()
         if not ticker or not set(ticker) <= _SAFE:
             return "", None
+        if ticker.endswith((".HK", ".SS", ".SZ")):
+            return (
+                f"https://financialmodelingprep.com/image-stock/{ticker}.png",
+                self._sources.parqet.format(symbol=ticker),
+            )
         order = (self._first.get(ticker), *self._order)
         seen: list[str] = []
         for name in order:

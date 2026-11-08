@@ -19,6 +19,13 @@ def test_primary_is_parqet_by_default(logos: StockLogos) -> None:
     assert fallback == "https://companiesmarketcap.com/img/company-logos/64/AAPL.png"
 
 
+@pytest.mark.parametrize("symbol", ["0700.HK", "600519.SS", "000858.SZ"])
+def test_regional_listings_have_primary_and_fallback(symbol: str, logos: StockLogos) -> None:
+    primary, fallback = logos.urls(symbol)
+    assert primary == f"https://financialmodelingprep.com/image-stock/{symbol}.png"
+    assert fallback == f"https://assets.parqet.com/logos/symbol/{symbol}?format=png"
+
+
 def test_symbol_is_uppercased_and_stripped(logos: StockLogos) -> None:
     assert logos.urls("  aapl ") == logos.urls("AAPL")
 

@@ -181,6 +181,13 @@ def main() -> None:
             page.mouse.move(chart["x"] + chart["width"] * 0.3, chart["y"] + chart["height"] / 2)
             assert page.locator(".spark-hover").get_attribute("display") is None
             assert page.locator(".spark-hover text").first.text_content(), "Missing hover price"
+            previous_x = float(page.locator(".spark-hover circle").get_attribute("cx"))
+            previous_price = page.locator(".spark-hover text").first.text_content()
+            page.mouse.move(chart["x"] + chart["width"] * 0.3 + 2, chart["y"] + chart["height"] / 2)
+            current_x = float(page.locator(".spark-hover circle").get_attribute("cx"))
+            assert 0 < current_x - previous_x < 4, "Hover still snaps to sampled points"
+            assert page.locator(".spark-hover text").first.text_content() != previous_price
+            assert "≈" in page.locator(".spark-hover text").first.text_content()
             page.mouse.move(0, 0)
             assert page.locator(".spark-hover").get_attribute("display") == "none"
             count = page.evaluate("window.historyCalls.length")
