@@ -557,6 +557,7 @@
     float: !prefersReducedMotion && !window.matchMedia('(pointer: coarse), (max-width: 860px)').matches,
     idleMs: 0,
     activeMs: 0,
+    shuffleUntil: 0,
     world: null,
     ready: false,
     lastX: 0,
@@ -567,6 +568,7 @@
   };
 
   const SPRING_K = 11; // 弹簧刚度（1/s²）：越大回位越快
+  const SHUFFLE_DURATION_MS = 10_000;
   const SPRING_C = 6.4; // 阻尼（1/s）：≈ 临界阻尼，回位不过冲
   const WANDER_RADIUS = 6; // 游动半径（px）
   const WANDER_SPEED = 0.2; // 游动角速度（rad/s）
@@ -601,6 +603,7 @@
   }
 
   function buildWorld() {
+    sim.shuffleUntil = 0;
     // Box2D 默认每步最多移动 2 个"单位";我们把 1 单位当 1px,
     // 于是 2 单位/步 = 120px/s —— 拖起来会像拖着铅球。放宽到 40px/步。
     planck.Settings.maxTranslation = 10;
@@ -637,6 +640,11 @@
     // Preserve dragged positions only while the layout and viewport stay unchanged.
     const previous = !relayout && sim.ready ? new Map(sim.bySymbol) : new Map();
     const retarget = animateShuffle && sim.ready && sim.world && !resized;
+    if (retarget) {
+      sim.shuffleUntil = performance.now() + SHUFFLE_DURATION_MS;
+      // Once refreshed, keep the board still between interactions.
+      sim.float = false;
+    }
     if (!sim.ready || (relayout && !retarget) || !sim.world || resized) {
       buildWorld();
       sim.bySymbol.clear();
@@ -925,6 +933,20 @@
 
   function runSim(timestamp) {
     sim.raf = window.requestAnimationFrame(runSim);
+    if (sim.shuffleUntil && timestamp >= sim.shuffleUntil && !sim.dragging) {
+      // Stop where bodies have settled; never snap to possibly obstructed targets.
+      for (const entry of sim.nodes) {
+        const p = entry.body.getPosition();
+        entry.homeX = p.x;
+        entry.homeY = p.y;
+        entry.body.setLinearVelocity(planck.Vec2(0, 0));
+      }
+      sim.world.clearForces();
+      sim.shuffleUntil = 0;
+      paintSim();
+      stopSim();
+      return;
+    }
     if (!sim.last) sim.last = timestamp;
     const elapsed = Math.min(timestamp - sim.last, 120);
     sim.last = timestamp;
@@ -936,7 +958,7 @@
       steps += 1;
     }
     if (steps >= MAX_STEPS) sim.acc = 0;
-    if (!sim.float && !sim.dragging && steps > 0) {
+    if (!sim.float && !sim.shuffleUntil && !sim.dragging && steps > 0) {
       sim.activeMs += elapsed;
       let moving = false;
       for (const entry of sim.nodes) {

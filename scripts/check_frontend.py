@@ -234,6 +234,13 @@ def main() -> None:
                     for old, new in zip(before_shuffle, after_shuffle, strict=True)
                 ), f"{trigger} refresh did not randomize positions"
             print("PASS: manual/automatic refresh animates random layouts with collisions")
+            regression.wait_for_timeout(10_100)
+            settled = regression.evaluate("inspectBubbles()")
+            regression.wait_for_timeout(600)
+            assert settled == regression.evaluate("inspectBubbles()"), (
+                "Refresh kept moving bubbles after ten seconds"
+            )
+            print("PASS: refreshed board remains still after ten seconds")
             regression.close()
             page.bring_to_front()
             page.goto(base)
