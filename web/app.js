@@ -604,6 +604,8 @@
     const world = new planck.World({ gravity: planck.Vec2(0, 0) });
     world.setAutoClearForces(true);
     sim.world = world;
+    sim.worldWidth = sim.width;
+    sim.worldHeight = sim.height;
     const w = Math.max(sim.width, 1);
     const h = Math.max(sim.height, 1);
     const pad = WALL_PADDING;
@@ -628,9 +630,14 @@
   function syncSim(leaves, relayout) {
     const seen = new Set();
     const nodes = [];
-    if (!sim.ready || relayout || !sim.world) {
+    const resized = sim.worldWidth !== sim.width || sim.worldHeight !== sim.height;
+    // A drawer/viewport resize needs new walls, but must retain dragged positions.
+    const previous = !relayout && sim.ready ? new Map(sim.bySymbol) : new Map();
+    if (!sim.ready || relayout || !sim.world || resized) {
       buildWorld();
       sim.bySymbol.clear();
+      sim.mouseJoint = null;
+      sim.dragging = null;
       sim.ready = true;
     }
     for (const leaf of leaves) {
@@ -638,9 +645,16 @@
       seen.add(symbol);
       let entry = sim.bySymbol.get(symbol);
       if (!entry) {
+        const saved = previous.get(symbol);
+        const position = saved ? saved.body.getPosition() : leaf;
+        const bound = (value, extent) => Math.max(
+          leaf.r, Math.min(Math.max(leaf.r, extent - leaf.r), value),
+        );
+        const x = saved ? bound(position.x, sim.width) : position.x;
+        const y = saved ? bound(position.y, sim.height) : position.y;
         const body = sim.world.createBody({
           type: 'dynamic',
-          position: planck.Vec2(leaf.x, leaf.y),
+          position: planck.Vec2(x, y),
           linearDamping: 0,
           angularDamping: 0.6,
           fixedRotation: true,
@@ -653,19 +667,18 @@
         body.setUserData({ symbol });
         entry = {
           symbol,
-          phase: Math.random() * Math.PI * 2,
+          phase: saved ? saved.phase : Math.random() * Math.PI * 2,
           body,
-          homeX: leaf.x,
-          homeY: leaf.y,
-          x: leaf.x,
-          y: leaf.y,
+          homeX: saved ? bound(saved.homeX, sim.width) : x,
+          homeY: saved ? bound(saved.homeY, sim.height) : y,
+          x,
+          y,
           r: leaf.r,
           el: null,
         };
         sim.bySymbol.set(symbol, entry);
       } else {
-        entry.homeX = leaf.x;
-        entry.homeY = leaf.y;
+        // Data refreshes must not replace the anchor saved on drag release.
         entry.r = leaf.r;
         if (relayout) {
           entry.body.setTransform(planck.Vec2(leaf.x, leaf.y), 0);
@@ -1396,7 +1409,7 @@
     // 位置交给物理引擎：布局只给初始位置，之后由碰撞 + 拖动决定，松手不回弹
     sim.width = width;
     sim.height = height;
-    const layoutKey = `${state.universe}|${state.window}|${state.size}|${state.scale}|${state.group}|${width}x${height}`;
+    const layoutKey = `${state.universe}|${state.window}|${state.size}|${state.scale}|${state.group}`;
     const relayout = layoutKey !== sim.layoutKey;
     sim.layoutKey = layoutKey;
     syncSim(leaves, relayout);

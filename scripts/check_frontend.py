@@ -138,6 +138,65 @@ def main() -> None:
                 route.fulfill(content_type="application/json", body=json.dumps(payload))
 
             page.route("**/api/**", api)
+            # Inspect anchors as well as pixels: spring resets can take several frames.
+            regression = browser.new_page(
+                viewport={"width": 1440, "height": 900}, reduced_motion="reduce"
+            )
+            regression.route("**/api/**", api)
+            app_source = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
+            regression.route("**/app.js*", lambda route: route.fulfill(
+                content_type="text/javascript",
+                body=app_source.replace("  void boot();", """
+                  window.inspectBubbles = () => sim.nodes.map(n => ({
+                    symbol: n.symbol, x: n.x, y: n.y, homeX: n.homeX, homeY: n.homeY
+                  }));
+                  void boot();
+                """),
+            ))
+            regression.goto(base)
+            regression.wait_for_selector("g.bubble")
+            regression.wait_for_timeout(2000)
+            initial = regression.evaluate("inspectBubbles()")
+            target = regression.locator("g.bubble").first
+            box = target.bounding_box()
+            x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+            regression.mouse.move(x, y)
+            regression.mouse.down()
+            for step in range(1, 21):
+                regression.mouse.move(x + 100 * step / 20, y + 70 * step / 20)
+                regression.wait_for_timeout(20)
+            regression.mouse.up()
+            regression.wait_for_timeout(1500)
+            anchors = regression.evaluate("inspectBubbles()")
+            assert any(
+                abs(old["homeX"] - new["homeX"]) > 10
+                or abs(old["homeY"] - new["homeY"]) > 10
+                for old, new in zip(initial, anchors, strict=True)
+            ), "Drag did not change an anchor"
+            # Open by actual click, then check refresh and drawer close too.
+            target.click(force=True)
+            regression.wait_for_timeout(1000)
+
+            def assert_anchors_preserved() -> None:
+                current = {n["symbol"]: n for n in regression.evaluate("inspectBubbles()")}
+                # Choose anchors inside both drawer widths, so boundary clamping is irrelevant.
+                stable = [n for n in anchors if n["homeX"] < 700]
+                assert stable
+                for old in stable:
+                    new = current[old["symbol"]]
+                    assert abs(new["homeX"] - old["homeX"]) < 2, "Horizontal anchor reset"
+                    assert abs(new["homeY"] - old["homeY"]) < 2, "Vertical anchor reset"
+
+            assert_anchors_preserved()
+            regression.locator("#refresh").click()
+            regression.wait_for_timeout(500)
+            assert_anchors_preserved()
+            regression.locator("#detail-close").click()
+            regression.wait_for_timeout(700)
+            assert_anchors_preserved()
+            print("PASS: dragged anchors survive drawer open/close and market refresh")
+            regression.close()
+            page.bring_to_front()
             page.goto(base)
             page.wait_for_selector("g.bubble")
             assert "1234567" in page.locator("#status-version").inner_text()
