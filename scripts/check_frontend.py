@@ -149,13 +149,22 @@ def main() -> None:
                     symbol: n.symbol, x: n.homeX, y: n.homeY
                   }));
                   window.triggerAutoRefresh = () => { state.remaining = 0; tick(); };
-                  window.displaceBubble = () => {
-                    const entry = sim.nodes[0];
-                    const p = entry.body.getPosition();
-                    entry.homeX = p.x + 80;
-                    entry.homeY = p.y + 50;
-                    entry.body.setTransform(planck.Vec2(entry.homeX, entry.homeY), 0);
-                    paintSim();
+                  window.refreshHits = 0;
+                  const originalPulseHit = pulseHit;
+                  pulseHit = entry => { window.refreshHits++; originalPulseHit(entry); };
+                  const originalSyncSim = syncSim;
+                  syncSim = (leaves, relayout, animate) => {
+                    const previous = new Map(sim.nodes.map(n => [n.symbol, {
+                      body: n.body, x: n.body.getPosition().x, y: n.body.getPosition().y
+                    }]));
+                    originalSyncSim(leaves, relayout, animate);
+                    if (animate) window.transition = sim.nodes.map(n => {
+                      const old = previous.get(n.symbol);
+                      const p = n.body.getPosition();
+                      return {retained: old && old.body === n.body,
+                        jump: old ? Math.hypot(p.x - old.x, p.y - old.y) : 0,
+                        distance: Math.hypot(p.x - n.homeX, p.y - n.homeY)};
+                    });
                   };
                   void boot();
                 """),
@@ -163,19 +172,39 @@ def main() -> None:
             regression.goto(base)
             regression.wait_for_selector("g.bubble")
             initial = regression.evaluate("inspectAnchors()")
-            for trigger in ("manual", "automatic", "manual", "automatic"):
-                regression.evaluate("displaceBubble()")
-                assert regression.evaluate("inspectAnchors()") != initial
+            visited = {n["symbol"]: [(n["x"], n["y"])] for n in initial}
+            for trigger in ("manual", "automatic") * 3:
+                previous = regression.evaluate("inspectAnchors()")
+                regression.evaluate("window.refreshHits = 0")
                 with regression.expect_response("**/api/bubbles?*"):
                     if trigger == "manual":
                         regression.locator("#refresh").click()
                     else:
                         regression.evaluate("triggerAutoRefresh()")
                 regression.wait_for_timeout(500)
-                assert regression.evaluate("inspectAnchors()") == initial, (
-                    f"{trigger} refresh did not restore the initial layout"
+                current = regression.evaluate("inspectAnchors()")
+                assert current != initial and current != previous, (
+                    f"{trigger} refresh did not choose new positions"
                 )
-            print("PASS: manual and automatic refresh restore the initial layout")
+                transition = regression.evaluate("window.transition")
+                assert all(n["retained"] and n["jump"] < 0.01 for n in transition), (
+                    "Refresh teleported bubbles instead of moving existing bodies"
+                )
+                assert max(n["distance"] for n in transition) > 120, (
+                    "Refresh still restricts movement to the old local range"
+                )
+                assert regression.evaluate("window.refreshHits") > 0, (
+                    "Refresh did not produce collision feedback"
+                )
+                repeated = 0
+                for node in current:
+                    history = visited[node["symbol"]]
+                    if any((node["x"] - x) ** 2 + (node["y"] - y) ** 2 < 20 ** 2
+                           for x, y in history):
+                        repeated += 1
+                    history.append((node["x"], node["y"]))
+                assert repeated < len(current) * 0.15, "Too many bubbles revisited old positions"
+            print("PASS: manual/automatic refresh moves existing bubbles to new layouts with collisions")
             regression.close()
             page.bring_to_front()
             page.goto(base)
