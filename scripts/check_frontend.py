@@ -147,8 +147,14 @@ def main() -> None:
                   sim.float = false;
                   window.inspectAnchors = () => sim.nodes.map(n => ({
                     symbol: n.symbol, x: n.homeX, y: n.homeY
-                  }));
+                  })).sort((a, b) => a.symbol.localeCompare(b.symbol));
                   window.triggerAutoRefresh = () => { state.remaining = 0; tick(); };
+                  window.inspectReading = () => {
+                    const entry = sim.bySymbol.get('AAA');
+                    return {radius: entry.r,
+                      change: nodeBySymbol('AAA').change_pct,
+                      fixtureRadius: entry.body.getFixtureList().getShape().getRadius()};
+                  };
                   window.refreshHits = 0;
                   const originalPulseHit = pulseHit;
                   pulseHit = entry => { window.refreshHits++; originalPulseHit(entry); };
@@ -175,6 +181,10 @@ def main() -> None:
             visited = {n["symbol"]: [(n["x"], n["y"])] for n in initial}
             for trigger in ("manual", "automatic") * 3:
                 previous = regression.evaluate("inspectAnchors()")
+                reading = regression.evaluate("inspectReading()")
+                if trigger == "automatic":
+                    nodes[0]["size_value"] = 400 if nodes[0]["size_value"] == 100 else 100
+                    nodes[0]["change_pct"] *= -1
                 regression.evaluate("window.refreshHits = 0")
                 with regression.expect_response("**/api/bubbles?*"):
                     if trigger == "manual":
@@ -183,6 +193,15 @@ def main() -> None:
                         regression.evaluate("triggerAutoRefresh()")
                 regression.wait_for_timeout(500)
                 current = regression.evaluate("inspectAnchors()")
+                if trigger == "automatic":
+                    assert current == previous, "Automatic refresh reset bubble anchors"
+                    updated = regression.evaluate("inspectReading()")
+                    assert updated["change"] != reading["change"], "Price change did not update"
+                    assert updated["radius"] != reading["radius"], "Bubble size did not update"
+                    assert abs(updated["fixtureRadius"] - updated["radius"]) < 0.01, (
+                        "Collision radius did not follow the new bubble size"
+                    )
+                    continue
                 assert current != initial and current != previous, (
                     f"{trigger} refresh did not choose new positions"
                 )
@@ -204,7 +223,9 @@ def main() -> None:
                         repeated += 1
                     history.append((node["x"], node["y"]))
                 assert repeated < len(current) * 0.15, "Too many bubbles revisited old positions"
-            print("PASS: manual/automatic refresh moves existing bubbles to new layouts with collisions")
+            nodes[0]["size_value"] = 100
+            nodes[0]["change_pct"] = 1
+            print("PASS: auto refresh preserves anchors and updates data/sizes; manual refresh randomizes with collisions")
             regression.close()
             page.bring_to_front()
             page.goto(base)

@@ -1951,7 +1951,8 @@
     state.remaining -= 1;
     if (state.remaining <= 0) {
       state.remaining = Number(state.config.auto_refresh_seconds) || 60;
-      void loadSnapshot({ shuffle: true });
+      // Keep symbols in place during passive market updates.
+      void loadSnapshot();
       return;
     }
     el.countdown.textContent = `${state.remaining}s`;
