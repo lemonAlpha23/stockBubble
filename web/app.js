@@ -634,7 +634,7 @@
     const seen = new Set();
     const nodes = [];
     const resized = sim.worldWidth !== sim.width || sim.worldHeight !== sim.height;
-    // A drawer/viewport resize needs new walls, but must retain dragged positions.
+    // Preserve dragged positions only while the layout and viewport stay unchanged.
     const previous = !relayout && sim.ready ? new Map(sim.bySymbol) : new Map();
     if (!sim.ready || relayout || !sim.world || resized) {
       buildWorld();
@@ -1424,7 +1424,8 @@
     // 位置交给物理引擎：布局只给初始位置，之后由碰撞 + 拖动决定，松手不回弹
     sim.width = width;
     sim.height = height;
-    const layoutKey = `${state.universe}|${state.window}|${state.size}|${state.scale}|${state.group}|${state.layoutSeed}`;
+    // Positions, anchors and collision radii must all follow the new viewport layout.
+    const layoutKey = `${state.universe}|${state.window}|${state.size}|${state.scale}|${state.group}|${state.layoutSeed}|${width}|${height}`;
     const relayout = layoutKey !== sim.layoutKey;
     sim.layoutKey = layoutKey;
     syncSim(leaves, relayout);
