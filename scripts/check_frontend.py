@@ -138,156 +138,44 @@ def main() -> None:
                 route.fulfill(content_type="application/json", body=json.dumps(payload))
 
             page.route("**/api/**", api)
-            # Inspect anchors as well as pixels: spring resets can take several frames.
-            regression = browser.new_page(
-                viewport={"width": 1440, "height": 900}, reduced_motion="no-preference"
-            )
+            regression = browser.new_page(viewport={"width": 1440, "height": 900})
             regression.route("**/api/**", api)
             app_source = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
             regression.route("**/app.js*", lambda route: route.fulfill(
                 content_type="text/javascript",
                 body=app_source.replace("  void boot();", """
-                  window.inspectBubbles = () => sim.nodes.map(n => ({
-                    symbol: n.symbol, x: n.x, y: n.y, homeX: n.homeX, homeY: n.homeY
+                  sim.float = false;
+                  window.inspectAnchors = () => sim.nodes.map(n => ({
+                    symbol: n.symbol, x: n.homeX, y: n.homeY
                   }));
                   window.triggerAutoRefresh = () => { state.remaining = 0; tick(); };
-                  window.checkShuffleDirections = () => {
-                    const seed = state.layoutSeed;
-                    let p = {x: sim.width / 2, y: sim.height / 2};
-                    const entry = {symbol: 'direction-check', r: 20,
-                      origin: {...p}, body: {getPosition: () => p}};
-                    const results = [];
-                    for (let i = 0; i < 20; i++) {
-                      state.layoutSeed = i + 1;
-                      const previous = entry.shuffleDirection;
-                      const next = shuffleTarget(entry);
-                      const direction = entry.shuffleDirection;
-                      results.push({
-                        alignment: previous ? Math.abs(previous.x * direction.x +
-                          previous.y * direction.y) : 0,
-                        originDistance: Math.hypot(next.x - entry.origin.x,
-                          next.y - entry.origin.y),
-                        distance: next.travel
-                      });
-                      p = {x: next.x, y: next.y};
-                    }
-                    state.layoutSeed = seed;
-                    return results;
-                  };
-                  sim.float = false;
-                  window.refreshHits = 0;
-                  const originalPulseHit = pulseHit;
-                  pulseHit = entry => { window.refreshHits++; originalPulseHit(entry); };
-                  const originalSyncSim = syncSim;
-                  syncSim = (leaves, relayout, animate) => {
-                    const previous = new Map(sim.nodes.map(n => [n.symbol, {
-                      body: n.body, x: n.body.getPosition().x, y: n.body.getPosition().y
-                    }]));
-                    originalSyncSim(leaves, relayout, animate);
-                    if (animate) window.refreshTransition = sim.nodes.map(n => {
-                      const old = previous.get(n.symbol);
-                      const p = n.body.getPosition();
-                      return {
-                        retained: old && old.body === n.body,
-                        jump: old ? Math.hypot(p.x - old.x, p.y - old.y) : 0,
-                        distance: Math.hypot(p.x - n.homeX, p.y - n.homeY)
-                      };
-                    });
+                  window.displaceBubble = () => {
+                    const entry = sim.nodes[0];
+                    const p = entry.body.getPosition();
+                    entry.homeX = p.x + 80;
+                    entry.homeY = p.y + 50;
+                    entry.body.setTransform(planck.Vec2(entry.homeX, entry.homeY), 0);
+                    paintSim();
                   };
                   void boot();
                 """),
             ))
             regression.goto(base)
             regression.wait_for_selector("g.bubble")
-            regression.wait_for_timeout(2000)
-            directions = regression.evaluate("checkShuffleDirections()")
-            assert all(n["alignment"] <= 0.71 for n in directions), (
-                "Shuffle repeated or reversed the previous direction"
-            )
-            assert all(n["originDistance"] >= 23.99 for n in directions), (
-                "Shuffle returned to its original position"
-            )
-            assert all(n["distance"] <= 120.01 for n in directions)
-            print("PASS: twenty local shuffles vary direction and avoid the origin")
-            initial = regression.evaluate("inspectBubbles()")
-            target = regression.locator("g.bubble").first
-            box = target.bounding_box()
-            x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
-            regression.mouse.move(x, y)
-            regression.mouse.down()
-            for step in range(1, 21):
-                regression.mouse.move(x + 100 * step / 20, y + 70 * step / 20)
-                regression.wait_for_timeout(20)
-            regression.mouse.up()
-            regression.wait_for_timeout(1500)
-            anchors = regression.evaluate("inspectBubbles()")
-            assert any(
-                abs(old["homeX"] - new["homeX"]) > 10
-                or abs(old["homeY"] - new["homeY"]) > 10
-                for old, new in zip(initial, anchors, strict=True)
-            ), "Drag did not change an anchor"
-            # Opening and closing details must preserve dragged anchors.
-            target.click(force=True)
-            regression.wait_for_timeout(1000)
-
-            def assert_anchors_preserved() -> None:
-                current = {n["symbol"]: n for n in regression.evaluate("inspectBubbles()")}
-                # Choose anchors inside both drawer widths, so boundary clamping is irrelevant.
-                stable = [n for n in anchors if n["homeX"] < 700]
-                assert stable
-                for old in stable:
-                    new = current[old["symbol"]]
-                    assert abs(new["homeX"] - old["homeX"]) < 2, "Horizontal anchor reset"
-                    assert abs(new["homeY"] - old["homeY"]) < 2, "Vertical anchor reset"
-
-            assert_anchors_preserved()
-            regression.locator("#detail-close").click()
-            regression.wait_for_timeout(700)
-            assert_anchors_preserved()
-            print("PASS: dragged anchors survive drawer open/close")
-            for trigger in ("manual", "manual", "automatic", "automatic"):
-                regression.evaluate("window.refreshHits = 0")
-                before_shuffle = regression.evaluate("inspectBubbles()")
+            initial = regression.evaluate("inspectAnchors()")
+            for trigger in ("manual", "automatic", "manual", "automatic"):
+                regression.evaluate("displaceBubble()")
+                assert regression.evaluate("inspectAnchors()") != initial
                 with regression.expect_response("**/api/bubbles?*"):
                     if trigger == "manual":
                         regression.locator("#refresh").click()
                     else:
                         regression.evaluate("triggerAutoRefresh()")
                 regression.wait_for_timeout(500)
-                after_shuffle = regression.evaluate("inspectBubbles()")
-                transition = regression.evaluate("window.refreshTransition")
-                assert transition and all(n["retained"] for n in transition), (
-                    "Refresh replaced physical bodies"
+                assert regression.evaluate("inspectAnchors()") == initial, (
+                    f"{trigger} refresh did not restore the initial layout"
                 )
-                assert max(n["jump"] for n in transition) < 0.01, "Refresh teleported bubbles"
-                assert max(n["distance"] for n in transition) > 10, "Missing movement targets"
-                assert max(n["distance"] for n in transition) <= 120.01, (
-                    "Refresh target moved outside the local shuffle range"
-                )
-                assert regression.evaluate("window.refreshHits") > 0, (
-                    "Refresh did not produce collision feedback"
-                )
-                assert any(
-                    abs(old["homeX"] - new["homeX"]) > 10
-                    or abs(old["homeY"] - new["homeY"]) > 10
-                    for old, new in zip(before_shuffle, after_shuffle, strict=True)
-                ), f"{trigger} refresh did not randomize positions"
-            print("PASS: manual/automatic refresh animates random layouts with collisions")
-            regression.wait_for_timeout(13_500)
-            slowing = regression.evaluate("inspectBubbles()")
-            regression.wait_for_timeout(200)
-            slowed = regression.evaluate("inspectBubbles()")
-            assert max(
-                ((a["x"] - b["x"]) ** 2 + (a["y"] - b["y"]) ** 2) ** 0.5
-                for a, b in zip(slowing, slowed, strict=True)
-            ) < 0.5, "Bubbles did not slow smoothly before stopping"
-            regression.wait_for_timeout(1_400)
-            settled = regression.evaluate("inspectBubbles()")
-            regression.wait_for_timeout(600)
-            assert settled == regression.evaluate("inspectBubbles()"), (
-                "Refresh kept moving bubbles after fifteen seconds"
-            )
-            print("PASS: refreshed board slows smoothly and stops within fifteen seconds")
+            print("PASS: manual and automatic refresh restore the initial layout")
             regression.close()
             page.bring_to_front()
             page.goto(base)

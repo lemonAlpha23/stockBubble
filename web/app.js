@@ -76,7 +76,6 @@
     remaining: 0,
     loading: false,
     requestToken: 0,
-    layoutSeed: 0,
     historyCache: new Map(),
     historyCooldowns: new Map(),
   };
@@ -349,7 +348,7 @@
     return `${API.bubbles}?${params.toString()}`;
   }
 
-  async function loadSnapshot({ shuffle = false } = {}) {
+  async function loadSnapshot({ resetLayout = false } = {}) {
     if (!state.universe) return;
     const token = ++state.requestToken;
     snapshotRequest?.abort();
@@ -364,11 +363,11 @@
       const snapshot = await fetchJSON(bubbleURL(), { signal: snapshotRequest.signal });
       if (token !== state.requestToken) return;
       state.snapshot = snapshot;
-      // Only a successful requested shuffle starts a new random layout.
-      if (shuffle) state.layoutSeed = Math.random();
+      // Refresh restores the deterministic initial layout after a successful response.
+      if (resetLayout) sim.layoutKey = '';
       el.empty.hidden = true;
       updateGroupHint();
-      render({ animateShuffle: shuffle });
+      render();
       updateStatus();
       state.remaining = Number(state.config.auto_refresh_seconds) || 60;
       if (state.selected) selectSymbol(state.selected, { keepDetail: true });
@@ -557,7 +556,6 @@
     float: !prefersReducedMotion && !window.matchMedia('(pointer: coarse), (max-width: 860px)').matches,
     idleMs: 0,
     activeMs: 0,
-    shuffleUntil: 0,
     world: null,
     ready: false,
     lastX: 0,
@@ -568,11 +566,6 @@
   };
 
   const SPRING_K = 11; // 弹簧刚度（1/s²）：越大回位越快
-  const SHUFFLE_DURATION_MS = 15_000;
-  const SHUFFLE_SETTLE_MS = 4_000;
-  const SHUFFLE_MAX_DISTANCE = 120;
-  const SHUFFLE_SPRING_K = 20;
-  const SHUFFLE_SPRING_C = 7;
   const SPRING_C = 6.4; // 阻尼（1/s）：≈ 临界阻尼，回位不过冲
   const WANDER_RADIUS = 6; // 游动半径（px）
   const WANDER_SPEED = 0.2; // 游动角速度（rad/s）
@@ -607,7 +600,6 @@
   }
 
   function buildWorld() {
-    sim.shuffleUntil = 0;
     // Box2D 默认每步最多移动 2 个"单位";我们把 1 单位当 1px,
     // 于是 2 单位/步 = 120px/s —— 拖起来会像拖着铅球。放宽到 40px/步。
     planck.Settings.maxTranslation = 10;
@@ -637,62 +629,13 @@
     sim.ground = world.createBody({ type: 'static', position: planck.Vec2(0, 0) });
   }
 
-  function shuffleTarget(entry) {
-    const p = entry.body.getPosition();
-    const rand = seededRandom(`${state.layoutSeed}|${entry.symbol}`);
-    const maxDistance = Math.min(SHUFFLE_MAX_DISTANCE, Math.min(sim.width, sim.height) * 0.18);
-    const distance = maxDistance * (0.5 + rand() * 0.5);
-    const start = rand() * Math.PI * 2;
-    const bound = (value, extent) => {
-      const margin = entry.r + WALL_PADDING;
-      return Math.max(Math.min(margin, extent / 2), Math.min(extent - margin, value));
-    };
-    const history = entry.shuffleHistory || [];
-    const origin = entry.origin || { x: p.x, y: p.y };
-    let best;
-    let bestScore = -Infinity;
-    for (let i = 0; i < 64; i += 1) {
-      const angle = start + i * Math.PI * 2 / 64;
-      const x = bound(p.x + Math.cos(angle) * distance, sim.width);
-      const y = bound(p.y + Math.sin(angle) * distance, sim.height);
-      const dx = x - p.x;
-      const dy = y - p.y;
-      const travel = Math.hypot(dx, dy);
-      // Prefer a turn over continuing straight or retracing the previous movement.
-      const alignment = entry.shuffleDirection && travel > 0
-        ? Math.abs((dx * entry.shuffleDirection.x + dy * entry.shuffleDirection.y) / travel) : 0;
-      const originDistance = Math.hypot(x - origin.x, y - origin.y);
-      const avoidRadius = Math.min(maxDistance * 0.5, Math.hypot(p.x - origin.x, p.y - origin.y));
-      const clearance = history.length
-        ? Math.min(...history.map((point) => Math.hypot(x - point.x, y - point.y))) : travel;
-      const score = clearance + travel * 0.2
-        - Math.max(0, alignment - 0.7) * 1000
-        - Math.max(0, avoidRadius - originDistance) * 100;
-      if (score > bestScore) {
-        bestScore = score;
-        best = { x, y, dx, dy, travel };
-      }
-    }
-    if (best.travel > 0) entry.shuffleDirection = {
-      x: best.dx / best.travel, y: best.dy / best.travel,
-    };
-    entry.shuffleHistory = [...history, { x: p.x, y: p.y }].slice(-4);
-    return best;
-  }
-
-  function syncSim(leaves, relayout, animateShuffle = false) {
+  function syncSim(leaves, relayout) {
     const seen = new Set();
     const nodes = [];
     const resized = sim.worldWidth !== sim.width || sim.worldHeight !== sim.height;
     // Preserve dragged positions only while the layout and viewport stay unchanged.
     const previous = !relayout && sim.ready ? new Map(sim.bySymbol) : new Map();
-    const retarget = animateShuffle && sim.ready && sim.world && !resized;
-    if (retarget) {
-      sim.shuffleUntil = performance.now() + SHUFFLE_DURATION_MS;
-      // Once refreshed, keep the board still between interactions.
-      sim.float = false;
-    }
-    if (!sim.ready || (relayout && !retarget) || !sim.world || resized) {
+    if (!sim.ready || relayout || !sim.world || resized) {
       buildWorld();
       sim.bySymbol.clear();
       sim.mouseJoint = null;
@@ -733,9 +676,6 @@
           x,
           y,
           r: leaf.r,
-          origin: saved?.origin || { x, y },
-          shuffleDirection: saved?.shuffleDirection,
-          shuffleHistory: saved?.shuffleHistory || [],
           el: null,
         };
         sim.bySymbol.set(symbol, entry);
@@ -752,18 +692,10 @@
         if (relayout) {
           entry.homeX = leaf.x;
           entry.homeY = leaf.y;
-          if (retarget) {
-            // Shuffle locally so symbols remain easy to follow while watching prices.
-            const target = shuffleTarget(entry);
-            entry.homeX = target.x;
-            entry.homeY = target.y;
-            entry.body.setAwake(true);
-          } else {
-            entry.body.setTransform(planck.Vec2(leaf.x, leaf.y), 0);
-            entry.body.setLinearVelocity(planck.Vec2(0, 0));
-            entry.x = leaf.x;
-            entry.y = leaf.y;
-          }
+          entry.body.setTransform(planck.Vec2(leaf.x, leaf.y), 0);
+          entry.body.setLinearVelocity(planck.Vec2(0, 0));
+          entry.x = leaf.x;
+          entry.y = leaf.y;
         }
       }
       nodes.push(entry);
@@ -792,14 +724,6 @@
 
   function stepSim() {
     const dt = FIXED_STEP_MS / 1000;
-    const remaining = sim.shuffleUntil - performance.now();
-    const t = sim.shuffleUntil ? Math.max(0, Math.min(1, remaining / SHUFFLE_SETTLE_MS)) : 1;
-    const mobility = t * t * (3 - 2 * t);
-    const settling = mobility < 1 && !sim.dragging;
-    const positions = settling ? sim.nodes.map((entry) => {
-      const p = entry.body.getPosition();
-      return { x: p.x, y: p.y };
-    }) : null;
     for (const entry of sim.nodes) {
       const body = entry.body;
       // 被拖的那颗由鼠标关节驱动，跳过回位弹簧（否则会和手抢方向）
@@ -817,13 +741,10 @@
       const wander = wanderOffset(entry);
       const p = body.getPosition();
       const v = body.getLinearVelocity();
-      const stiffness = sim.shuffleUntil ? SHUFFLE_SPRING_K : SPRING_K;
-      const damping = sim.shuffleUntil ? SHUFFLE_SPRING_C : SPRING_C;
-      const ax = (entry.homeX + wander.x - p.x) * stiffness - v.x * damping;
-      const ay = (entry.homeY + wander.y - p.y) * stiffness - v.y * damping;
+      const ax = (entry.homeX + wander.x - p.x) * SPRING_K - v.x * SPRING_C;
+      const ay = (entry.homeY + wander.y - p.y) * SPRING_K - v.y * SPRING_C;
       const mass = body.getMass();
-      if (settling) body.setLinearVelocity(planck.Vec2(v.x * mobility, v.y * mobility));
-      body.applyForceToCenter(planck.Vec2(ax * mass * mobility, ay * mass * mobility), true);
+      body.applyForceToCenter(planck.Vec2(ax * mass, ay * mass), true);
     }
     sim.world.step(dt, 5, 3);
     // 冲量求解器是"软"的：弹簧一直往里压时，位置迭代会留下一两像素的残余穿透。
@@ -832,15 +753,6 @@
     // 少量标的时球很大，四面墙之间塞不下，求解器可能把它们从角落挤出去；
     // 兜底按半径把球心钳回画布内，保证"显示 20 个"就是真的 20 个都看得见。
     clampToStage();
-    // Ease collision corrections too, so dense groups cannot jitter at the deadline.
-    if (positions) sim.nodes.forEach((entry, index) => {
-      const from = positions[index];
-      const p = entry.body.getPosition();
-      entry.body.setTransform(planck.Vec2(
-        from.x + (p.x - from.x) * mobility,
-        from.y + (p.y - from.y) * mobility,
-      ), 0);
-    });
     paintSim();
   }
 
@@ -959,13 +871,11 @@
     const va = a.body.getLinearVelocity();
     const vb = b.body.getLinearVelocity();
     const closing = (vb.x - va.x) * nx + (vb.y - va.y) * ny; // > 0 表示正在分开
-    const shuffling = sim.shuffleUntil > performance.now();
-    if (closing > -(shuffling ? 35 : BOUNCE_MIN_SPEED)) return;
+    if (closing > -BOUNCE_MIN_SPEED) return;
     const now = performance.now();
     if (!canBounce(a, b, now)) return;
     markBounce(a, b, now);
-    const restitution = shuffling ? 0.82 : BOUNCE_RESTITUTION;
-    const impulse = -closing * (1 + restitution) * BOUNCE_DAMPING;
+    const impulse = -closing * (1 + BOUNCE_RESTITUTION) * BOUNCE_DAMPING;
     const kickA = impulse * (wa / total);
     const kickB = impulse * (wb / total);
     // 被拖的那颗也吃一点反冲：手感上像"顶到了实心东西"，但只给 40%，免得和鼠标关节打架
@@ -1008,20 +918,6 @@
 
   function runSim(timestamp) {
     sim.raf = window.requestAnimationFrame(runSim);
-    if (sim.shuffleUntil && timestamp >= sim.shuffleUntil && !sim.dragging) {
-      // Stop where bodies have settled; never snap to possibly obstructed targets.
-      for (const entry of sim.nodes) {
-        const p = entry.body.getPosition();
-        entry.homeX = p.x;
-        entry.homeY = p.y;
-        entry.body.setLinearVelocity(planck.Vec2(0, 0));
-      }
-      sim.world.clearForces();
-      sim.shuffleUntil = 0;
-      paintSim();
-      stopSim();
-      return;
-    }
     if (!sim.last) sim.last = timestamp;
     const elapsed = Math.min(timestamp - sim.last, 120);
     sim.last = timestamp;
@@ -1033,7 +929,7 @@
       steps += 1;
     }
     if (steps >= MAX_STEPS) sim.acc = 0;
-    if (!sim.float && !sim.shuffleUntil && !sim.dragging && steps > 0) {
+    if (!sim.float && !sim.dragging && steps > 0) {
       sim.activeMs += elapsed;
       let moving = false;
       for (const entry of sim.nodes) {
@@ -1173,7 +1069,7 @@
       .map((node) => ({ data: node, weight: Math.pow(Math.max(node.size_value, 1), p * 2) }))
       .sort((a, b) => b.weight - a.weight);
     const rand = seededRandom(
-      `${state.universe}|${state.size}|${scale}|${items.length}|${items.map((item) => item.data.symbol).join(',')}|${state.layoutSeed}`,
+      `${state.universe}|${state.size}|${scale}|${items.length}|${items.map((item) => item.data.symbol).join(',')}`,
     );
 
     const wsum = d3.sum(items, (item) => item.weight) || 1;
@@ -1281,7 +1177,7 @@
     }
   }
 
-  function render({ animateShuffle = false } = {}) {
+  function render() {
     const snapshot = state.snapshot;
     if (!snapshot) return;
     const { width, height } = stageSize();
@@ -1310,18 +1206,6 @@
         .padding((node) => (node.depth === 1 ? 46 : 8))(buildHierarchy(nodes, state.scale));
       sectorNodes = layout.children || [];
       leaves = layout.leaves();
-      if (state.layoutSeed) {
-        const rand = seededRandom(String(state.layoutSeed));
-        for (const sector of sectorNodes) {
-          const angle = rand() * Math.PI * 2;
-          for (const leaf of sector.leaves()) {
-            const dx = leaf.x - sector.x;
-            const dy = leaf.y - sector.y;
-            leaf.x = sector.x + dx * Math.cos(angle) - dy * Math.sin(angle);
-            leaf.y = sector.y + dx * Math.sin(angle) + dy * Math.cos(angle);
-          }
-        }
-      }
       fitLayout(layout, width, height);
     } else {
       // 不分组：铺满整屏，不再套成一个圆
@@ -1537,10 +1421,10 @@
     sim.width = width;
     sim.height = height;
     // Positions, anchors and collision radii must all follow the new viewport layout.
-    const layoutKey = `${state.universe}|${state.window}|${state.size}|${state.scale}|${state.group}|${state.layoutSeed}|${width}|${height}`;
+    const layoutKey = `${state.universe}|${state.window}|${state.size}|${state.scale}|${state.group}|${width}|${height}`;
     const relayout = layoutKey !== sim.layoutKey;
     sim.layoutKey = layoutKey;
-    syncSim(leaves, relayout, animateShuffle && !prefersReducedMotion);
+    syncSim(leaves, relayout);
     bubbleSel.each(function attachSimElement(node) {
       const entry = sim.bySymbol.get(node.data.symbol);
       if (entry) entry.el = this;
@@ -1999,7 +1883,7 @@
     state.remaining -= 1;
     if (state.remaining <= 0) {
       state.remaining = Number(state.config.auto_refresh_seconds) || 60;
-      void loadSnapshot({ shuffle: true });
+      void loadSnapshot({ resetLayout: true });
       return;
     }
     el.countdown.textContent = `${state.remaining}s`;
@@ -2261,7 +2145,7 @@
     });
     el.refresh.addEventListener('click', () => {
       state.historyCache.clear();
-      void loadSnapshot({ shuffle: true });
+      void loadSnapshot({ resetLayout: true });
     });
 
     el.relayout.addEventListener('click', () => {
