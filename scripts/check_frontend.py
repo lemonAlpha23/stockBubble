@@ -175,6 +175,9 @@ def main() -> None:
                     return results;
                   };
                   sim.float = false;
+                  window.refreshHits = 0;
+                  const originalPulseHit = pulseHit;
+                  pulseHit = entry => { window.refreshHits++; originalPulseHit(entry); };
                   const originalSyncSim = syncSim;
                   syncSim = (leaves, relayout, animate) => {
                     const previous = new Map(sim.nodes.map(n => [n.symbol, {
@@ -204,7 +207,7 @@ def main() -> None:
             assert all(n["originDistance"] >= 23.99 for n in directions), (
                 "Shuffle returned to its original position"
             )
-            assert all(n["distance"] <= 48.01 for n in directions)
+            assert all(n["distance"] <= 120.01 for n in directions)
             print("PASS: twenty local shuffles vary direction and avoid the origin")
             initial = regression.evaluate("inspectBubbles()")
             target = regression.locator("g.bubble").first
@@ -243,6 +246,7 @@ def main() -> None:
             assert_anchors_preserved()
             print("PASS: dragged anchors survive drawer open/close")
             for trigger in ("manual", "manual", "automatic", "automatic"):
+                regression.evaluate("window.refreshHits = 0")
                 before_shuffle = regression.evaluate("inspectBubbles()")
                 with regression.expect_response("**/api/bubbles?*"):
                     if trigger == "manual":
@@ -257,17 +261,19 @@ def main() -> None:
                 )
                 assert max(n["jump"] for n in transition) < 0.01, "Refresh teleported bubbles"
                 assert max(n["distance"] for n in transition) > 10, "Missing movement targets"
-                assert max(n["distance"] for n in transition) <= 48.01, (
+                assert max(n["distance"] for n in transition) <= 120.01, (
                     "Refresh target moved outside the local shuffle range"
                 )
-                # Small, slow shuffles need not cross the impact-flash speed threshold.
+                assert regression.evaluate("window.refreshHits") > 0, (
+                    "Refresh did not produce collision feedback"
+                )
                 assert any(
                     abs(old["homeX"] - new["homeX"]) > 10
                     or abs(old["homeY"] - new["homeY"]) > 10
                     for old, new in zip(before_shuffle, after_shuffle, strict=True)
                 ), f"{trigger} refresh did not randomize positions"
             print("PASS: manual/automatic refresh animates random layouts with collisions")
-            regression.wait_for_timeout(8_500)
+            regression.wait_for_timeout(13_500)
             slowing = regression.evaluate("inspectBubbles()")
             regression.wait_for_timeout(200)
             slowed = regression.evaluate("inspectBubbles()")
@@ -279,9 +285,9 @@ def main() -> None:
             settled = regression.evaluate("inspectBubbles()")
             regression.wait_for_timeout(600)
             assert settled == regression.evaluate("inspectBubbles()"), (
-                "Refresh kept moving bubbles after ten seconds"
+                "Refresh kept moving bubbles after fifteen seconds"
             )
-            print("PASS: refreshed board remains still after ten seconds")
+            print("PASS: refreshed board slows smoothly and stops within fifteen seconds")
             regression.close()
             page.bring_to_front()
             page.goto(base)

@@ -568,9 +568,11 @@
   };
 
   const SPRING_K = 11; // 弹簧刚度（1/s²）：越大回位越快
-  const SHUFFLE_DURATION_MS = 10_000;
+  const SHUFFLE_DURATION_MS = 15_000;
   const SHUFFLE_SETTLE_MS = 4_000;
-  const SHUFFLE_MAX_DISTANCE = 48;
+  const SHUFFLE_MAX_DISTANCE = 120;
+  const SHUFFLE_SPRING_K = 20;
+  const SHUFFLE_SPRING_C = 7;
   const SPRING_C = 6.4; // 阻尼（1/s）：≈ 临界阻尼，回位不过冲
   const WANDER_RADIUS = 6; // 游动半径（px）
   const WANDER_SPEED = 0.2; // 游动角速度（rad/s）
@@ -638,7 +640,7 @@
   function shuffleTarget(entry) {
     const p = entry.body.getPosition();
     const rand = seededRandom(`${state.layoutSeed}|${entry.symbol}`);
-    const maxDistance = Math.min(SHUFFLE_MAX_DISTANCE, Math.min(sim.width, sim.height) * 0.08);
+    const maxDistance = Math.min(SHUFFLE_MAX_DISTANCE, Math.min(sim.width, sim.height) * 0.18);
     const distance = maxDistance * (0.5 + rand() * 0.5);
     const start = rand() * Math.PI * 2;
     const bound = (value, extent) => {
@@ -815,8 +817,10 @@
       const wander = wanderOffset(entry);
       const p = body.getPosition();
       const v = body.getLinearVelocity();
-      const ax = (entry.homeX + wander.x - p.x) * SPRING_K - v.x * SPRING_C;
-      const ay = (entry.homeY + wander.y - p.y) * SPRING_K - v.y * SPRING_C;
+      const stiffness = sim.shuffleUntil ? SHUFFLE_SPRING_K : SPRING_K;
+      const damping = sim.shuffleUntil ? SHUFFLE_SPRING_C : SPRING_C;
+      const ax = (entry.homeX + wander.x - p.x) * stiffness - v.x * damping;
+      const ay = (entry.homeY + wander.y - p.y) * stiffness - v.y * damping;
       const mass = body.getMass();
       if (settling) body.setLinearVelocity(planck.Vec2(v.x * mobility, v.y * mobility));
       body.applyForceToCenter(planck.Vec2(ax * mass * mobility, ay * mass * mobility), true);
@@ -955,11 +959,13 @@
     const va = a.body.getLinearVelocity();
     const vb = b.body.getLinearVelocity();
     const closing = (vb.x - va.x) * nx + (vb.y - va.y) * ny; // > 0 表示正在分开
-    if (closing > -BOUNCE_MIN_SPEED) return; // 只是被慢慢挤开，没有"撞"的感觉
+    const shuffling = sim.shuffleUntil > performance.now();
+    if (closing > -(shuffling ? 35 : BOUNCE_MIN_SPEED)) return;
     const now = performance.now();
     if (!canBounce(a, b, now)) return;
     markBounce(a, b, now);
-    const impulse = -closing * (1 + BOUNCE_RESTITUTION) * BOUNCE_DAMPING;
+    const restitution = shuffling ? 0.82 : BOUNCE_RESTITUTION;
+    const impulse = -closing * (1 + restitution) * BOUNCE_DAMPING;
     const kickA = impulse * (wa / total);
     const kickB = impulse * (wb / total);
     // 被拖的那颗也吃一点反冲：手感上像"顶到了实心东西"，但只给 40%，免得和鼠标关节打架
