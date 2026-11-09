@@ -174,7 +174,7 @@ def main() -> None:
                 or abs(old["homeY"] - new["homeY"]) > 10
                 for old, new in zip(initial, anchors, strict=True)
             ), "Drag did not change an anchor"
-            # Open by actual click, then check refresh and drawer close too.
+            # Opening and closing details must preserve dragged anchors.
             target.click(force=True)
             regression.wait_for_timeout(1000)
 
@@ -189,25 +189,25 @@ def main() -> None:
                     assert abs(new["homeY"] - old["homeY"]) < 2, "Vertical anchor reset"
 
             assert_anchors_preserved()
-            regression.locator("#refresh").click()
-            regression.wait_for_timeout(500)
-            assert_anchors_preserved()
             regression.locator("#detail-close").click()
             regression.wait_for_timeout(700)
             assert_anchors_preserved()
-            print("PASS: dragged anchors survive drawer open/close and market refresh")
-            for _ in range(2):
+            print("PASS: dragged anchors survive drawer open/close")
+            for trigger in ("manual", "manual", "automatic", "automatic"):
                 before_shuffle = regression.evaluate("inspectBubbles()")
                 with regression.expect_response("**/api/bubbles?*"):
-                    regression.evaluate("triggerAutoRefresh()")
+                    if trigger == "manual":
+                        regression.locator("#refresh").click()
+                    else:
+                        regression.evaluate("triggerAutoRefresh()")
                 regression.wait_for_timeout(500)
                 after_shuffle = regression.evaluate("inspectBubbles()")
                 assert any(
                     abs(old["homeX"] - new["homeX"]) > 10
                     or abs(old["homeY"] - new["homeY"]) > 10
                     for old, new in zip(before_shuffle, after_shuffle, strict=True)
-                ), "Automatic refresh did not randomize positions"
-            print("PASS: successive automatic refreshes randomize bubble positions")
+                ), f"{trigger} refresh did not randomize positions"
+            print("PASS: successive manual and automatic refreshes randomize bubble positions")
             regression.close()
             page.bring_to_front()
             page.goto(base)

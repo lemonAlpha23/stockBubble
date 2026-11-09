@@ -364,7 +364,7 @@
       const snapshot = await fetchJSON(bubbleURL(), { signal: snapshotRequest.signal });
       if (token !== state.requestToken) return;
       state.snapshot = snapshot;
-      // Only a successful automatic refresh starts a new random layout.
+      // Only a successful requested shuffle starts a new random layout.
       if (shuffle) state.layoutSeed = Math.random();
       el.empty.hidden = true;
       updateGroupHint();
@@ -2149,7 +2149,7 @@
     });
     el.refresh.addEventListener('click', () => {
       state.historyCache.clear();
-      void loadSnapshot();
+      void loadSnapshot({ shuffle: true });
     });
 
     el.relayout.addEventListener('click', () => {
