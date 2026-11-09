@@ -151,6 +151,29 @@ def main() -> None:
                     symbol: n.symbol, x: n.x, y: n.y, homeX: n.homeX, homeY: n.homeY
                   }));
                   window.triggerAutoRefresh = () => { state.remaining = 0; tick(); };
+                  window.checkShuffleDirections = () => {
+                    const seed = state.layoutSeed;
+                    let p = {x: sim.width / 2, y: sim.height / 2};
+                    const entry = {symbol: 'direction-check', r: 20,
+                      origin: {...p}, body: {getPosition: () => p}};
+                    const results = [];
+                    for (let i = 0; i < 20; i++) {
+                      state.layoutSeed = i + 1;
+                      const previous = entry.shuffleDirection;
+                      const next = shuffleTarget(entry);
+                      const direction = entry.shuffleDirection;
+                      results.push({
+                        alignment: previous ? Math.abs(previous.x * direction.x +
+                          previous.y * direction.y) : 0,
+                        originDistance: Math.hypot(next.x - entry.origin.x,
+                          next.y - entry.origin.y),
+                        distance: next.travel
+                      });
+                      p = {x: next.x, y: next.y};
+                    }
+                    state.layoutSeed = seed;
+                    return results;
+                  };
                   sim.float = false;
                   const originalSyncSim = syncSim;
                   syncSim = (leaves, relayout, animate) => {
@@ -174,6 +197,15 @@ def main() -> None:
             regression.goto(base)
             regression.wait_for_selector("g.bubble")
             regression.wait_for_timeout(2000)
+            directions = regression.evaluate("checkShuffleDirections()")
+            assert all(n["alignment"] <= 0.71 for n in directions), (
+                "Shuffle repeated or reversed the previous direction"
+            )
+            assert all(n["originDistance"] >= 23.99 for n in directions), (
+                "Shuffle returned to its original position"
+            )
+            assert all(n["distance"] <= 48.01 for n in directions)
+            print("PASS: twenty local shuffles vary direction and avoid the origin")
             initial = regression.evaluate("inspectBubbles()")
             target = regression.locator("g.bubble").first
             box = target.bounding_box()
@@ -225,16 +257,25 @@ def main() -> None:
                 )
                 assert max(n["jump"] for n in transition) < 0.01, "Refresh teleported bubbles"
                 assert max(n["distance"] for n in transition) > 10, "Missing movement targets"
-                assert regression.locator("g.bubble.is-hit").count() > 0, (
-                    "Refresh did not produce collision feedback"
+                assert max(n["distance"] for n in transition) <= 48.01, (
+                    "Refresh target moved outside the local shuffle range"
                 )
+                # Small, slow shuffles need not cross the impact-flash speed threshold.
                 assert any(
                     abs(old["homeX"] - new["homeX"]) > 10
                     or abs(old["homeY"] - new["homeY"]) > 10
                     for old, new in zip(before_shuffle, after_shuffle, strict=True)
                 ), f"{trigger} refresh did not randomize positions"
             print("PASS: manual/automatic refresh animates random layouts with collisions")
-            regression.wait_for_timeout(10_100)
+            regression.wait_for_timeout(8_500)
+            slowing = regression.evaluate("inspectBubbles()")
+            regression.wait_for_timeout(200)
+            slowed = regression.evaluate("inspectBubbles()")
+            assert max(
+                ((a["x"] - b["x"]) ** 2 + (a["y"] - b["y"]) ** 2) ** 0.5
+                for a, b in zip(slowing, slowed, strict=True)
+            ) < 0.5, "Bubbles did not slow smoothly before stopping"
+            regression.wait_for_timeout(1_400)
             settled = regression.evaluate("inspectBubbles()")
             regression.wait_for_timeout(600)
             assert settled == regression.evaluate("inspectBubbles()"), (
