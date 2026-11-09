@@ -150,6 +150,7 @@ def main() -> None:
                   window.inspectBubbles = () => sim.nodes.map(n => ({
                     symbol: n.symbol, x: n.x, y: n.y, homeX: n.homeX, homeY: n.homeY
                   }));
+                  window.triggerAutoRefresh = () => { state.remaining = 0; tick(); };
                   void boot();
                 """),
             ))
@@ -195,6 +196,18 @@ def main() -> None:
             regression.wait_for_timeout(700)
             assert_anchors_preserved()
             print("PASS: dragged anchors survive drawer open/close and market refresh")
+            for _ in range(2):
+                before_shuffle = regression.evaluate("inspectBubbles()")
+                with regression.expect_response("**/api/bubbles?*"):
+                    regression.evaluate("triggerAutoRefresh()")
+                regression.wait_for_timeout(500)
+                after_shuffle = regression.evaluate("inspectBubbles()")
+                assert any(
+                    abs(old["homeX"] - new["homeX"]) > 10
+                    or abs(old["homeY"] - new["homeY"]) > 10
+                    for old, new in zip(before_shuffle, after_shuffle, strict=True)
+                ), "Automatic refresh did not randomize positions"
+            print("PASS: successive automatic refreshes randomize bubble positions")
             regression.close()
             page.bring_to_front()
             page.goto(base)

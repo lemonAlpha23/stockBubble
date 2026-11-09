@@ -76,6 +76,7 @@
     remaining: 0,
     loading: false,
     requestToken: 0,
+    layoutSeed: 0,
     historyCache: new Map(),
     historyCooldowns: new Map(),
   };
@@ -348,7 +349,7 @@
     return `${API.bubbles}?${params.toString()}`;
   }
 
-  async function loadSnapshot() {
+  async function loadSnapshot({ shuffle = false } = {}) {
     if (!state.universe) return;
     const token = ++state.requestToken;
     snapshotRequest?.abort();
@@ -363,6 +364,8 @@
       const snapshot = await fetchJSON(bubbleURL(), { signal: snapshotRequest.signal });
       if (token !== state.requestToken) return;
       state.snapshot = snapshot;
+      // Only a successful automatic refresh starts a new random layout.
+      if (shuffle) state.layoutSeed = Math.random();
       el.empty.hidden = true;
       updateGroupHint();
       render();
@@ -1058,7 +1061,7 @@
       .map((node) => ({ data: node, weight: Math.pow(Math.max(node.size_value, 1), p * 2) }))
       .sort((a, b) => b.weight - a.weight);
     const rand = seededRandom(
-      `${state.universe}|${state.size}|${scale}|${items.length}|${items.map((item) => item.data.symbol).join(',')}`,
+      `${state.universe}|${state.size}|${scale}|${items.length}|${items.map((item) => item.data.symbol).join(',')}|${state.layoutSeed}`,
     );
 
     const wsum = d3.sum(items, (item) => item.weight) || 1;
@@ -1195,6 +1198,18 @@
         .padding((node) => (node.depth === 1 ? 46 : 8))(buildHierarchy(nodes, state.scale));
       sectorNodes = layout.children || [];
       leaves = layout.leaves();
+      if (state.layoutSeed) {
+        const rand = seededRandom(String(state.layoutSeed));
+        for (const sector of sectorNodes) {
+          const angle = rand() * Math.PI * 2;
+          for (const leaf of sector.leaves()) {
+            const dx = leaf.x - sector.x;
+            const dy = leaf.y - sector.y;
+            leaf.x = sector.x + dx * Math.cos(angle) - dy * Math.sin(angle);
+            leaf.y = sector.y + dx * Math.sin(angle) + dy * Math.cos(angle);
+          }
+        }
+      }
       fitLayout(layout, width, height);
     } else {
       // 不分组：铺满整屏，不再套成一个圆
@@ -1409,7 +1424,7 @@
     // 位置交给物理引擎：布局只给初始位置，之后由碰撞 + 拖动决定，松手不回弹
     sim.width = width;
     sim.height = height;
-    const layoutKey = `${state.universe}|${state.window}|${state.size}|${state.scale}|${state.group}`;
+    const layoutKey = `${state.universe}|${state.window}|${state.size}|${state.scale}|${state.group}|${state.layoutSeed}`;
     const relayout = layoutKey !== sim.layoutKey;
     sim.layoutKey = layoutKey;
     syncSim(leaves, relayout);
@@ -1871,7 +1886,7 @@
     state.remaining -= 1;
     if (state.remaining <= 0) {
       state.remaining = Number(state.config.auto_refresh_seconds) || 60;
-      void loadSnapshot();
+      void loadSnapshot({ shuffle: true });
       return;
     }
     el.countdown.textContent = `${state.remaining}s`;
