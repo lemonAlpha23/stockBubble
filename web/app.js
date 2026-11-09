@@ -368,7 +368,7 @@
       if (shuffle) state.layoutSeed = Math.random();
       el.empty.hidden = true;
       updateGroupHint();
-      render();
+      render({ animateShuffle: shuffle });
       updateStatus();
       state.remaining = Number(state.config.auto_refresh_seconds) || 60;
       if (state.selected) selectSymbol(state.selected, { keepDetail: true });
@@ -630,13 +630,14 @@
     sim.ground = world.createBody({ type: 'static', position: planck.Vec2(0, 0) });
   }
 
-  function syncSim(leaves, relayout) {
+  function syncSim(leaves, relayout, animateShuffle = false) {
     const seen = new Set();
     const nodes = [];
     const resized = sim.worldWidth !== sim.width || sim.worldHeight !== sim.height;
     // Preserve dragged positions only while the layout and viewport stay unchanged.
     const previous = !relayout && sim.ready ? new Map(sim.bySymbol) : new Map();
-    if (!sim.ready || relayout || !sim.world || resized) {
+    const retarget = animateShuffle && sim.ready && sim.world && !resized;
+    if (!sim.ready || (relayout && !retarget) || !sim.world || resized) {
       buildWorld();
       sim.bySymbol.clear();
       sim.mouseJoint = null;
@@ -682,12 +683,26 @@
         sim.bySymbol.set(symbol, entry);
       } else {
         // Data refreshes must not replace the anchor saved on drag release.
+        if (entry.r !== leaf.r) {
+          const fixture = entry.body.getFixtureList();
+          entry.body.destroyFixture(fixture);
+          entry.body.createFixture(planck.Circle(leaf.r), {
+            density: 0.001, friction: 0, restitution: 0,
+          });
+        }
         entry.r = leaf.r;
         if (relayout) {
-          entry.body.setTransform(planck.Vec2(leaf.x, leaf.y), 0);
-          entry.body.setLinearVelocity(planck.Vec2(0, 0));
-          entry.x = leaf.x;
-          entry.y = leaf.y;
+          entry.homeX = leaf.x;
+          entry.homeY = leaf.y;
+          if (retarget) {
+            // Keep bodies and momentum: springs pull them through real collisions.
+            entry.body.setAwake(true);
+          } else {
+            entry.body.setTransform(planck.Vec2(leaf.x, leaf.y), 0);
+            entry.body.setLinearVelocity(planck.Vec2(0, 0));
+            entry.x = leaf.x;
+            entry.y = leaf.y;
+          }
         }
       }
       nodes.push(entry);
@@ -1169,7 +1184,7 @@
     }
   }
 
-  function render() {
+  function render({ animateShuffle = false } = {}) {
     const snapshot = state.snapshot;
     if (!snapshot) return;
     const { width, height } = stageSize();
@@ -1428,7 +1443,7 @@
     const layoutKey = `${state.universe}|${state.window}|${state.size}|${state.scale}|${state.group}|${state.layoutSeed}|${width}|${height}`;
     const relayout = layoutKey !== sim.layoutKey;
     sim.layoutKey = layoutKey;
-    syncSim(leaves, relayout);
+    syncSim(leaves, relayout, animateShuffle && !prefersReducedMotion);
     bubbleSel.each(function attachSimElement(node) {
       const entry = sim.bySymbol.get(node.data.symbol);
       if (entry) entry.el = this;

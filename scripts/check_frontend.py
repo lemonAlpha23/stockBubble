@@ -140,7 +140,7 @@ def main() -> None:
             page.route("**/api/**", api)
             # Inspect anchors as well as pixels: spring resets can take several frames.
             regression = browser.new_page(
-                viewport={"width": 1440, "height": 900}, reduced_motion="reduce"
+                viewport={"width": 1440, "height": 900}, reduced_motion="no-preference"
             )
             regression.route("**/api/**", api)
             app_source = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
@@ -151,6 +151,23 @@ def main() -> None:
                     symbol: n.symbol, x: n.x, y: n.y, homeX: n.homeX, homeY: n.homeY
                   }));
                   window.triggerAutoRefresh = () => { state.remaining = 0; tick(); };
+                  sim.float = false;
+                  const originalSyncSim = syncSim;
+                  syncSim = (leaves, relayout, animate) => {
+                    const previous = new Map(sim.nodes.map(n => [n.symbol, {
+                      body: n.body, x: n.body.getPosition().x, y: n.body.getPosition().y
+                    }]));
+                    originalSyncSim(leaves, relayout, animate);
+                    if (animate) window.refreshTransition = sim.nodes.map(n => {
+                      const old = previous.get(n.symbol);
+                      const p = n.body.getPosition();
+                      return {
+                        retained: old && old.body === n.body,
+                        jump: old ? Math.hypot(p.x - old.x, p.y - old.y) : 0,
+                        distance: Math.hypot(p.x - n.homeX, p.y - n.homeY)
+                      };
+                    });
+                  };
                   void boot();
                 """),
             ))
@@ -202,12 +219,21 @@ def main() -> None:
                         regression.evaluate("triggerAutoRefresh()")
                 regression.wait_for_timeout(500)
                 after_shuffle = regression.evaluate("inspectBubbles()")
+                transition = regression.evaluate("window.refreshTransition")
+                assert transition and all(n["retained"] for n in transition), (
+                    "Refresh replaced physical bodies"
+                )
+                assert max(n["jump"] for n in transition) < 0.01, "Refresh teleported bubbles"
+                assert max(n["distance"] for n in transition) > 10, "Missing movement targets"
+                assert regression.locator("g.bubble.is-hit").count() > 0, (
+                    "Refresh did not produce collision feedback"
+                )
                 assert any(
                     abs(old["homeX"] - new["homeX"]) > 10
                     or abs(old["homeY"] - new["homeY"]) > 10
                     for old, new in zip(before_shuffle, after_shuffle, strict=True)
                 ), f"{trigger} refresh did not randomize positions"
-            print("PASS: successive manual and automatic refreshes randomize bubble positions")
+            print("PASS: manual/automatic refresh animates random layouts with collisions")
             regression.close()
             page.bring_to_front()
             page.goto(base)
